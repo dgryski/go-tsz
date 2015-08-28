@@ -90,7 +90,7 @@ func (s *Series) Push(t uint32, v float64) {
 		s.bw.WriteBits(uint64(dod), 9)
 	case -2047 <= dod && dod <= 2048:
 		s.bw.WriteBits(0x0e, 4) // '1110'
-		s.bw.WriteBits(uint64(dod), 9)
+		s.bw.WriteBits(uint64(dod), 12)
 	default:
 		s.bw.WriteBits(0x0f, 4) // '1111'
 		s.bw.WriteBits(uint64(dod), 32)
