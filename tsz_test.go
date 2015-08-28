@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestEncode(t *testing.T) {
+func TestExampleEncoding(t *testing.T) {
 
 	// Example from the paper
 	t0, _ := time.ParseInLocation("Jan _2 2006 15:04:05", "Mar 24 2015 02:00:00", time.Local)
