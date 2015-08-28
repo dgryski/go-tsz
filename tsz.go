@@ -53,6 +53,9 @@ func (s *Series) Bytes() []byte {
 }
 
 func (s *Series) Finish() {
+
+	// TODO(dgryski): need real end-of-stream marker here
+
 	if !s.finished {
 		s.bw.Flush(bitstream.Zero)
 		s.finished = true
