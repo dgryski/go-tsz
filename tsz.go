@@ -186,7 +186,7 @@ func (it *Iter) Next() bool {
 
 	// read delta-of-delta
 	var d byte
-	for {
+	for i := 0; i < 4; i++ {
 		bit, err := it.br.ReadBit()
 		if err != nil {
 			it.err = err
