@@ -100,7 +100,7 @@ func (s *Series) Push(t uint32, v float64) {
 
 		if s.leading != ^uint64(0) && leading >= s.leading && trailing >= s.trailing {
 			s.bw.WriteBit(bitstream.Zero)
-			s.bw.WriteBits(vDelta>>s.trailing, 64-int(s.leading))
+			s.bw.WriteBits(vDelta>>s.trailing, 64-int(s.leading)-int(s.trailing))
 		} else {
 			s.leading, s.trailing = leading, trailing
 
@@ -281,8 +281,7 @@ func (it *Iter) Next() bool {
 			return false
 		}
 		vbits := math.Float64bits(it.val)
-		mask := ^uint64(0) & ^((1<<uint(mbits) - 1) << it.trailing)
-		vbits = (vbits & mask) | (bits << it.trailing)
+		vbits ^= (bits << it.trailing)
 		it.val = math.Float64frombits(vbits)
 	}
 
