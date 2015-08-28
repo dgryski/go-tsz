@@ -1,7 +1,6 @@
 package tsz
 
 import (
-	"log"
 	"testing"
 	"time"
 )
@@ -25,16 +24,33 @@ func TestEncode(t *testing.T) {
 
 	s.Finish()
 
-	log.Printf("len(s.Bytes())=%+v\n", len(s.Bytes()))
-
 	it := s.Iter()
 
-	for it.Next() {
-		t, v := it.Values()
-		log.Printf("it.Values()=(%+v, %+v)\n", time.Unix(int64(t), 0), v)
+	tunix = uint32(t0.Unix())
+	want := []struct {
+		t uint32
+		v float64
+	}{
+		{tunix + 62, 12},
+		{tunix + 122, 12},
+		{tunix + 182, 24},
+	}
+
+	for _, w := range want {
+		if !it.Next() {
+			t.Fatalf("Next()=false, want true")
+		}
+		tt, vv := it.Values()
+		if w.t != tt || w.v != vv {
+			t.Errorf("Values()=(%v,%v), want (%v,%v)\n", tt, vv, w.t, w.v)
+		}
+	}
+
+	if it.Next() {
+		t.Fatalf("Next()=false, want true")
 	}
 
 	if err := it.Err(); err != nil {
-		log.Printf("err=%+v\n", err)
+		t.Errorf("it.Err()=%v, want nil", err)
 	}
 }
