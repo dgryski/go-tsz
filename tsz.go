@@ -16,6 +16,9 @@ import (
 )
 
 type Series struct {
+
+	// TODO(dgryski): timestamps in the paper are uint64
+
 	t0     uint32
 	tDelta uint32
 	t      uint32
