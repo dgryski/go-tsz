@@ -54,9 +54,11 @@ func (s *Series) Bytes() []byte {
 
 func (s *Series) Finish() {
 
-	// TODO(dgryski): need real end-of-stream marker here
-
 	if !s.finished {
+		// write an end-of-stream record
+		s.bw.WriteBits(0x0f, 4)
+		s.bw.WriteBits(0xffffffff, 32)
+		s.bw.WriteBit(bitstream.Zero)
 		s.bw.Flush(bitstream.Zero)
 		s.finished = true
 	}
@@ -194,6 +196,7 @@ func (it *Iter) Next() bool {
 	// read delta-of-delta
 	var d byte
 	for i := 0; i < 4; i++ {
+		d <<= 1
 		bit, err := it.br.ReadBit()
 		if err != nil {
 			it.err = err
@@ -203,7 +206,6 @@ func (it *Iter) Next() bool {
 			break
 		}
 		d |= 1
-		d <<= 1
 	}
 
 	var dod int32
@@ -221,6 +223,12 @@ func (it *Iter) Next() bool {
 		bits, err := it.br.ReadBits(32)
 		if err != nil {
 			it.err = err
+			return false
+		}
+
+		// end of stream
+		if bits == 0xffffffff {
+			it.finished = true
 			return false
 		}
 
