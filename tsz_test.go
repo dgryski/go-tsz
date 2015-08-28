@@ -1,6 +1,7 @@
 package tsz
 
 import (
+	"io"
 	"testing"
 	"time"
 )
@@ -50,7 +51,7 @@ func TestEncode(t *testing.T) {
 		t.Fatalf("Next()=false, want true")
 	}
 
-	if err := it.Err(); err != nil {
-		t.Errorf("it.Err()=%v, want nil", err)
+	if err := it.Err(); err != io.EOF {
+		t.Errorf("it.Err()=%v, want io.EOF", err)
 	}
 }
