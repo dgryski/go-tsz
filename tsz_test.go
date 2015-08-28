@@ -48,7 +48,7 @@ func TestExampleEncoding(t *testing.T) {
 	}
 
 	if it.Next() {
-		t.Fatalf("Next()=false, want true")
+		t.Fatalf("Next()=true, want false")
 	}
 
 	if err := it.Err(); err != io.EOF {
