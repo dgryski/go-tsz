@@ -22,6 +22,25 @@ func TestExampleEncoding(t *testing.T) {
 	tunix += 60
 	s.Push(tunix, 24)
 
+	// extra tests
+
+	// floating point masking/shifting bug
+	tunix += 60
+	s.Push(tunix, 13)
+
+	tunix += 60
+	s.Push(tunix, 24)
+
+	// delta-of-delta sizes
+	tunix += 300 // == delta-of-delta of 240
+	s.Push(tunix, 24)
+
+	tunix += 900 // == delta-of-delta of 600
+	s.Push(tunix, 24)
+
+	tunix += 900 + 2050 // == delta-of-delta of 600
+	s.Push(tunix, 24)
+
 	s.Finish()
 
 	it := s.Iter()
@@ -34,6 +53,13 @@ func TestExampleEncoding(t *testing.T) {
 		{tunix + 62, 12},
 		{tunix + 122, 12},
 		{tunix + 182, 24},
+
+		{tunix + 242, 13},
+		{tunix + 302, 24},
+
+		{tunix + 602, 24},
+		{tunix + 1502, 24},
+		{tunix + 4452, 24},
 	}
 
 	for _, w := range want {
