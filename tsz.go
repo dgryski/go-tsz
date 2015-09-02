@@ -4,7 +4,6 @@
 http://www.vldb.org/pvldb/vol8/p1816-teller.pdf
 
 */
-
 package tsz
 
 import (
