@@ -51,14 +51,18 @@ func (s *Series) Bytes() []byte {
 	return s.buf.Bytes()
 }
 
+func finish(w *bitstream.BitWriter) {
+	// write an end-of-stream record
+	w.WriteBits(0x0f, 4)
+	w.WriteBits(0xffffffff, 32)
+	w.WriteBit(bitstream.Zero)
+	w.Flush(bitstream.Zero)
+}
+
 func (s *Series) Finish() {
 
 	if !s.finished {
-		// write an end-of-stream record
-		s.bw.WriteBits(0x0f, 4)
-		s.bw.WriteBits(0xffffffff, 32)
-		s.bw.WriteBit(bitstream.Zero)
-		s.bw.Flush(bitstream.Zero)
+		finish(s.bw)
 		s.finished = true
 	}
 }
@@ -128,7 +132,12 @@ func (s *Series) Push(t uint32, v float64) {
 }
 
 func (s *Series) Iter() *Iter {
-	iter, _ := NewIterator(s.buf.Bytes())
+	buf := bytes.NewBuffer(s.buf.Bytes())
+	w := bitstream.NewWriter(buf)
+	byt, count := s.bw.Pending()
+	w.Resume(byt, count)
+	finish(w)
+	iter, _ := NewIterator(buf.Bytes())
 	return iter
 }
 
