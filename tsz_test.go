@@ -41,8 +41,6 @@ func TestExampleEncoding(t *testing.T) {
 	tunix += 900 + 2050 // == delta-of-delta of 600
 	s.Push(tunix, 24)
 
-	s.Finish()
-
 	it := s.Iter()
 
 	tunix = uint32(t0.Unix())
@@ -118,7 +116,6 @@ func TestRoundtrip(t *testing.T) {
 	for _, p := range TwoHoursData {
 		s.Push(p.t, p.v)
 	}
-	s.Finish()
 
 	it := s.Iter()
 	for _, w := range TwoHoursData {
@@ -147,7 +144,6 @@ func BenchmarkEncode(b *testing.B) {
 		for _, tt := range TwoHoursData {
 			s.Push(tt.t, tt.v)
 		}
-		s.Finish()
 	}
 }
 
@@ -156,7 +152,6 @@ func BenchmarkDecode(b *testing.B) {
 	for _, tt := range TwoHoursData {
 		s.Push(tt.t, tt.v)
 	}
-	s.Finish()
 
 	b.ResetTimer()
 
