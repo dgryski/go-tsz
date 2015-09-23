@@ -132,7 +132,10 @@ func (s *Series) Push(t uint32, v float64) {
 }
 
 func (s *Series) Iter() *Iter {
-	buf := bytes.NewBuffer(s.buf.Bytes())
+	data := s.buf.Bytes()
+	newData := make([]byte, len(data), len(data)+1)
+	copy(newData, data)
+	buf := bytes.NewBuffer(newData)
 	w := bitstream.NewWriter(buf)
 	byt, count := s.bw.Pending()
 	w.Resume(byt, count)
