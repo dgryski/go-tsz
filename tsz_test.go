@@ -1,6 +1,8 @@
 package tsz
 
 import (
+	"io"
+	"sync"
 	"testing"
 	"time"
 )
@@ -136,6 +138,105 @@ func TestRoundtrip(t *testing.T) {
 	if err := it.Err(); err != nil {
 		t.Errorf("it.Err()=%v, want nil", err)
 	}
+}
+
+func writer(s *Series, done chan struct{}, sleep time.Duration) {
+	for _, p := range TwoHoursData {
+		s.Push(p.t, p.v)
+		time.Sleep(sleep)
+	}
+	close(done)
+}
+
+func reader(s *Series, done chan struct{}, errors chan string, wg *sync.WaitGroup, t *testing.T) {
+	// continuously create iterators to verify the data
+	// * when we know the writer is done, we make sure
+	// we do 1 last pass verifying all data
+	// * until then, we only require data to be correct up until
+	// there's no more data returned,and don't require all data to be returned
+	lastPass := false
+	for {
+		select {
+		case <-done:
+			lastPass = true
+		default:
+		}
+		it := s.Iter()
+		iters := 0
+		for _, w := range TwoHoursData {
+			iters += 1
+			if it.Next() {
+				tt, vv := it.Values()
+				if w.t != tt || w.v != vv {
+					errors <- fmt.Sprintf("Values()=(%v,%v), want (%v,%v)\n", tt, vv, w.t, w.v)
+				}
+			} else {
+				if lastPass {
+					errors <- fmt.Sprintf("Next()=false, want true")
+				}
+				// if we're not the last pass, it's ok to not have all data yet, stop looking
+				break
+			}
+		}
+
+		// if not in last pass, Next() may suddenly have a new value now, or not..
+		if lastPass && it.Next() {
+			errors <- fmt.Sprintf("Next()=true, want false")
+		}
+
+		// if not a single value was written yet, we expect an EOF error
+		if iters == 0 {
+			if err := it.Err(); err != io.EOF {
+				errors <- fmt.Sprintf("it.Err()=%v, want EOF", err)
+			}
+			// but if one or more values exist, we should have a clean end of record
+		} else {
+			if err := it.Err(); err != nil {
+				errors <- fmt.Sprintf("it.Err()=%v, want nil. after %d iters", err, iters)
+			}
+		}
+		if lastPass {
+			break
+		}
+	}
+	wg.Done()
+}
+
+func TestConcurrentRoundtripImmediateWrites(t *testing.T) {
+	testConcurrentRoundtrip(t, time.Duration(0))
+}
+func TestConcurrentRoundtrip1MsBetweenWrites(t *testing.T) {
+	testConcurrentRoundtrip(t, time.Millisecond)
+}
+func TestConcurrentRoundtrip10MsBetweenWrites(t *testing.T) {
+	testConcurrentRoundtrip(t, 10*time.Millisecond)
+}
+
+// poorly synchronized. we want to test reading while writing, after finishing writing
+// we could introduce explicit synchronization but i don't see a simple way to do so
+// in a way that doesn't reduce the possible timing overlaps.
+func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
+
+	s := New(TwoHoursData[0].t)
+	done := make(chan struct{})
+	errors := make(chan string)
+
+	wg := &sync.WaitGroup{}
+
+	go func() {
+		for err := range errors {
+			t.Error(err)
+		}
+	}()
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go reader(s, done, errors, wg, t)
+	}
+
+	go writer(s, done, sleep)
+
+	wg.Wait()
 }
 
 func BenchmarkEncode(b *testing.B) {
