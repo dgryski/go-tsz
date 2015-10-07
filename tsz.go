@@ -124,6 +124,9 @@ func (s *Series) Push(t uint32, v float64) {
 			s.bw.WriteBit(bitstream.One)
 			s.bw.WriteBits(leading, 5)
 
+			// Note that if leading == trailing == 0, then sigbits == 64.  But that value doesn't actually fit into the 6 bits we have.
+			// Luckily, we never need to encode 0 significant bits, since that would put us in the other case (vdelta == 0).
+			// So instead we write out a 0 and adjust it back to 64 on unpacking.
 			sigbits := 64 - leading - trailing
 			s.bw.WriteBits(sigbits, 6)
 			s.bw.WriteBits(vDelta>>trailing, int(sigbits))
@@ -302,6 +305,10 @@ func (it *Iter) Next() bool {
 				return false
 			}
 			mbits := bits
+			// 0 significant bits here means we overflowed and we actually need 64; see comment in encoder
+			if mbits == 0 {
+				mbits = 64
+			}
 			it.trailing = 64 - it.leading - mbits
 		}
 
