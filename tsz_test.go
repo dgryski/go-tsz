@@ -163,3 +163,44 @@ func BenchmarkDecode(b *testing.B) {
 		}
 	}
 }
+
+func TestEncodeSimilarFloats(t *testing.T) {
+	tunix := uint32(time.Unix(0, 0).Unix())
+	s := New(tunix)
+	want := []struct {
+		t uint32
+		v float64
+	}{
+		{tunix, 6.00065e+06},
+		{tunix + 1, 6.000656e+06},
+		{tunix + 2, 6.000657e+06},
+		{tunix + 3, 6.000659e+06},
+		{tunix + 4, 6.000661e+06},
+	}
+
+	for _, v := range want {
+		s.Push(v.t, v.v)
+	}
+
+	s.Finish()
+
+	it := s.Iter()
+
+	for _, w := range want {
+		if !it.Next() {
+			t.Fatalf("Next()=false, want true")
+		}
+		tt, vv := it.Values()
+		if w.t != tt || w.v != vv {
+			t.Errorf("Values()=(%v,%v), want (%v,%v)\n", tt, vv, w.t, w.v)
+		}
+	}
+
+	if it.Next() {
+		t.Fatalf("Next()=true, want false")
+	}
+
+	if err := it.Err(); err != nil {
+		t.Errorf("it.Err()=%v, want nil", err)
+	}
+}

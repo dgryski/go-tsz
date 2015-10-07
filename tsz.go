@@ -109,6 +109,11 @@ func (s *Series) Push(t uint32, v float64) {
 		leading := bits.Clz(vDelta)
 		trailing := bits.Ctz(vDelta)
 
+		// clamp number of leading zeros to avoid overflow when encoding
+		if leading >= 32 {
+			leading = 31
+		}
+
 		// TODO(dgryski): check if it's 'cheaper' to reset the leading/trailing bits instead
 		if s.leading != ^uint64(0) && leading >= s.leading && trailing >= s.trailing {
 			s.bw.WriteBit(bitstream.Zero)
