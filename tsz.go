@@ -8,11 +8,12 @@ package tsz
 
 import (
 	"bytes"
-	"math"
-	"sync"
-
+	"encoding/gob"
 	"github.com/dgryski/go-bits"
 	"github.com/dgryski/go-bitstream"
+
+	"math"
+	"sync"
 )
 
 // Series is the basic series primitive
@@ -34,6 +35,68 @@ type Series struct {
 	bw  *bitstream.BitWriter
 
 	finished bool
+}
+
+// Data structure for serializing a series.
+type seriesOnDisk struct {
+	T0           uint32
+	TDelta       uint32
+	T            uint32
+	Val          float64
+	Leading      uint64
+	Trailing     uint64
+	B            []byte
+	PendingBits  byte
+	PendingCount uint8
+	Finished     bool
+}
+
+// Implimentation GobEncoder interface
+// https://golang.org/pkg/encoding/gob/#GobEncoder
+func (s Series) GobEncode() ([]byte, error) {
+	s.Lock()
+	defer s.Unlock()
+	pendingBits, pendingCount := s.bw.Pending()
+	sOnDisk := seriesOnDisk{
+		T0:           s.t0,
+		TDelta:       s.tDelta,
+		T:            s.t,
+		Val:          s.val,
+		Trailing:     s.trailing,
+		Leading:      s.leading,
+		B:            s.buf.Bytes(),
+		PendingBits:  pendingBits,
+		PendingCount: pendingCount,
+		Finished:     s.finished,
+	}
+	var b bytes.Buffer
+	enc := gob.NewEncoder(&b)
+	err := enc.Encode(sOnDisk)
+	return b.Bytes(), err
+}
+
+// Implimentation GobDecode interface
+// https://golang.org/pkg/encoding/gob/#GobDecoder
+func (s *Series) GobDecode(data []byte) error {
+	s.Lock()
+	defer s.Unlock()
+	r := bytes.NewReader(data)
+	dec := gob.NewDecoder(r)
+	sOnDisk := &seriesOnDisk{}
+	err := dec.Decode(sOnDisk)
+	if err != nil {
+		return err
+	}
+	s.t0 = sOnDisk.T0
+	s.tDelta = sOnDisk.TDelta
+	s.t = sOnDisk.T
+	s.val = sOnDisk.Val
+	s.leading = sOnDisk.Leading
+	s.trailing = sOnDisk.Trailing
+	s.buf.Write(sOnDisk.B)
+	s.bw = bitstream.NewWriter(&s.buf)
+	s.bw.Resume(sOnDisk.PendingBits, sOnDisk.PendingCount)
+	return nil
 }
 
 func New(t0 uint32) *Series {

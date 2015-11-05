@@ -1,6 +1,8 @@
 package tsz
 
 import (
+	"bytes"
+	"encoding/gob"
 	"testing"
 	"time"
 )
@@ -212,6 +214,78 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 		time.Sleep(sleep)
 	}
 	done <- struct{}{}
+}
+
+func testGobEncodeDecode(t *testing.T, s *Series, count, byteLen int) {
+	var b bytes.Buffer
+
+	// encoode the series
+	enc := gob.NewEncoder(&b)
+	err := enc.Encode(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// should encode to 230bytes
+	if b.Len() != byteLen {
+		t.Fatalf("encoded bytes not expected size. expecting %d got %d", byteLen, b.Len())
+	}
+
+	// decode the series
+	dec := gob.NewDecoder(&b)
+	thawed := Series{}
+	err = dec.Decode(&thawed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// compare fields between original and thawed series.
+
+	it := thawed.Iter()
+	for i := 0; i < count; i++ {
+		if !it.Next() {
+			t.Fatalf("expected a metric, but none available")
+		}
+		tt, vv := it.Values()
+		if TwoHoursData[i].t != tt || TwoHoursData[i].v != vv {
+			t.Errorf("thawed metric values dont match what was written. (%d, %f) != (%d, %f)\n", tt, vv, TwoHoursData[i].t, TwoHoursData[i].v)
+		}
+	}
+
+	if it.Next() {
+		t.Fatalf("expected to have read all metrics, but there are still more available.")
+	}
+
+}
+
+func TestGobEncodeDecode(t *testing.T) {
+	s := New(TwoHoursData[0].t)
+	for i := 0; i < 5; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+	}
+	testGobEncodeDecode(t, s, 5, 230)
+}
+
+func TestGobEncodeDecodeThenWrite(t *testing.T) {
+	s := New(TwoHoursData[0].t)
+	for i := 0; i < 5; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+	}
+	testGobEncodeDecode(t, s, 5, 230)
+
+	for i := 5; i < 20; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+	}
+	testGobEncodeDecode(t, s, 20, 253)
+}
+
+func TestGobEncodeDecodeFinished(t *testing.T) {
+	s := New(TwoHoursData[0].t)
+	for i := 0; i < 5; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+	}
+	s.Finish()
+	testGobEncodeDecode(t, s, 5, 234)
 }
 
 func BenchmarkEncode(b *testing.B) {
