@@ -148,15 +148,16 @@ func TestConcurrentRoundtrip10MsBetweenWrites(t *testing.T) {
 	testConcurrentRoundtrip(t, 10*time.Millisecond)
 }
 
-// poorly synchronized. we want to test reading while writing, after finishing writing
-// we could introduce explicit synchronization but i don't see a simple way to do so
-// in a way that doesn't reduce the possible timing overlaps.
+// Test reading while writing at the same time.
 func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
-
 	s := New(TwoHoursData[0].t)
-	//notify the reader about the number of writes that have been sent.
+
+	//notify the reader about the number of points that have been written.
 	writeNotify := make(chan int)
+
+	// notify the reader when we have finished.
 	done := make(chan struct{})
+
 	// continuously iterate over the values of the series.
 	// when a write is made, the total number of points in the series
 	// will be sent over the channel, so we can make sure we are reading
@@ -166,25 +167,27 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 		for {
 			select {
 			case n = <-numPoints:
-				//t.Logf("new point written")
+				//new point has been written. total points in now "n"
 			default:
 				readCount := 0
 				it := s.Iter()
+				// read all of the points in the series.
 				for it.Next() == true {
 					tt, vv := it.Values()
 					expectedT := TwoHoursData[readCount].t
 					expectedV := TwoHoursData[readCount].v
 					if expectedT != tt || expectedV != vv {
-						t.Errorf("thawed metric values dont match what was written. (%d, %f) != (%d, %f)\n", tt, vv, expectedT, expectedV)
+						t.Errorf("metric values dont match what was written. (%d, %f) != (%d, %f)\n", tt, vv, expectedT, expectedV)
 					}
 					readCount++
 				}
+				//check that the number of points read matches the number of points
+				// written to the series.
 				if readCount != n {
-					t.Logf("Checking if point was written while we were reading.")
 					// check if a point was written while we were running
 					select {
 					case n = <-numPoints:
-						t.Logf("new point written")
+						// a new point was written.
 						if readCount != n {
 							t.Errorf("expexcted %d values in series, got %d", n, readCount)
 						}
@@ -193,6 +196,7 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 					}
 				}
 			}
+			//check if we have finished writing points.
 			select {
 			case <-finished:
 				return
@@ -201,6 +205,7 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 		}
 	}(writeNotify, done)
 
+	// write points to the series.
 	for i := 0; i < 100; i++ {
 		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
 		writeNotify <- i + 1
