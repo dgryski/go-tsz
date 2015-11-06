@@ -8,13 +8,18 @@ package tsz
 
 import (
 	"bytes"
-	"math"
-
+	"encoding/gob"
 	"github.com/dgryski/go-bits"
 	"github.com/dgryski/go-bitstream"
+
+	"math"
+	"sync"
 )
 
+// Series is the basic series primitive
+// you can concurrently put values, finish the stream, and create iterators
 type Series struct {
+	sync.Mutex
 
 	// TODO(dgryski): timestamps in the paper are uint64
 
@@ -30,6 +35,68 @@ type Series struct {
 	bw  *bitstream.BitWriter
 
 	finished bool
+}
+
+// Data structure for serializing a series.
+type seriesOnDisk struct {
+	T0           uint32
+	TDelta       uint32
+	T            uint32
+	Val          float64
+	Leading      uint64
+	Trailing     uint64
+	B            []byte
+	PendingBits  byte
+	PendingCount uint8
+	Finished     bool
+}
+
+// Implimentation GobEncoder interface
+// https://golang.org/pkg/encoding/gob/#GobEncoder
+func (s *Series) GobEncode() ([]byte, error) {
+	s.Lock()
+	defer s.Unlock()
+	pendingBits, pendingCount := s.bw.Pending()
+	sOnDisk := seriesOnDisk{
+		T0:           s.t0,
+		TDelta:       s.tDelta,
+		T:            s.t,
+		Val:          s.val,
+		Trailing:     s.trailing,
+		Leading:      s.leading,
+		B:            s.buf.Bytes(),
+		PendingBits:  pendingBits,
+		PendingCount: pendingCount,
+		Finished:     s.finished,
+	}
+	var b bytes.Buffer
+	enc := gob.NewEncoder(&b)
+	err := enc.Encode(sOnDisk)
+	return b.Bytes(), err
+}
+
+// Implimentation GobDecode interface
+// https://golang.org/pkg/encoding/gob/#GobDecoder
+func (s *Series) GobDecode(data []byte) error {
+	s.Lock()
+	defer s.Unlock()
+	r := bytes.NewReader(data)
+	dec := gob.NewDecoder(r)
+	sOnDisk := &seriesOnDisk{}
+	err := dec.Decode(sOnDisk)
+	if err != nil {
+		return err
+	}
+	s.t0 = sOnDisk.T0
+	s.tDelta = sOnDisk.TDelta
+	s.t = sOnDisk.T
+	s.val = sOnDisk.Val
+	s.leading = sOnDisk.Leading
+	s.trailing = sOnDisk.Trailing
+	s.buf.Write(sOnDisk.B)
+	s.bw = bitstream.NewWriter(&s.buf)
+	s.bw.Resume(sOnDisk.PendingBits, sOnDisk.PendingCount)
+	return nil
 }
 
 func New(t0 uint32) *Series {
@@ -48,6 +115,8 @@ func New(t0 uint32) *Series {
 }
 
 func (s *Series) Bytes() []byte {
+	s.Lock()
+	defer s.Unlock()
 	return s.buf.Bytes()
 }
 
@@ -60,14 +129,17 @@ func finish(w *bitstream.BitWriter) {
 }
 
 func (s *Series) Finish() {
-
+	s.Lock()
 	if !s.finished {
 		finish(s.bw)
 		s.finished = true
 	}
+	s.Unlock()
 }
 
 func (s *Series) Push(t uint32, v float64) {
+	s.Lock()
+	defer s.Unlock()
 
 	if s.t == 0 {
 		// first point
@@ -140,18 +212,21 @@ func (s *Series) Push(t uint32, v float64) {
 }
 
 func (s *Series) Iter() *Iter {
+	s.Lock()
 	data := s.buf.Bytes()
 	newData := make([]byte, len(data), len(data)+1)
 	copy(newData, data)
+	byt, count := s.bw.Pending()
+	s.Unlock()
 	buf := bytes.NewBuffer(newData)
 	w := bitstream.NewWriter(buf)
-	byt, count := s.bw.Pending()
 	w.Resume(byt, count)
 	finish(w)
 	iter, _ := NewIterator(buf.Bytes())
 	return iter
 }
 
+// Iter lets you iterate over a series.  It is not concurrency-safe.
 type Iter struct {
 	t0 uint32
 

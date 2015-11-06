@@ -1,6 +1,8 @@
 package tsz
 
 import (
+	"bytes"
+	"encoding/gob"
 	"testing"
 	"time"
 )
@@ -136,6 +138,154 @@ func TestRoundtrip(t *testing.T) {
 	if err := it.Err(); err != nil {
 		t.Errorf("it.Err()=%v, want nil", err)
 	}
+}
+
+func TestConcurrentRoundtripImmediateWrites(t *testing.T) {
+	testConcurrentRoundtrip(t, time.Duration(0))
+}
+func TestConcurrentRoundtrip1MsBetweenWrites(t *testing.T) {
+	testConcurrentRoundtrip(t, time.Millisecond)
+}
+func TestConcurrentRoundtrip10MsBetweenWrites(t *testing.T) {
+	testConcurrentRoundtrip(t, 10*time.Millisecond)
+}
+
+// Test reading while writing at the same time.
+func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
+	s := New(TwoHoursData[0].t)
+
+	//notify the reader about the number of points that have been written.
+	writeNotify := make(chan int)
+
+	// notify the reader when we have finished.
+	done := make(chan struct{})
+
+	// continuously iterate over the values of the series.
+	// when a write is made, the total number of points in the series
+	// will be sent over the channel, so we can make sure we are reading
+	// the correct amount of values.
+	go func(numPoints chan int, finished chan struct{}) {
+		n := 0
+		for {
+			select {
+			case n = <-numPoints:
+				//new point has been written. total points in now "n"
+			default:
+				readCount := 0
+				it := s.Iter()
+				// read all of the points in the series.
+				for it.Next() == true {
+					tt, vv := it.Values()
+					expectedT := TwoHoursData[readCount].t
+					expectedV := TwoHoursData[readCount].v
+					if expectedT != tt || expectedV != vv {
+						t.Errorf("metric values dont match what was written. (%d, %f) != (%d, %f)\n", tt, vv, expectedT, expectedV)
+					}
+					readCount++
+				}
+				//check that the number of points read matches the number of points
+				// written to the series.
+				if readCount != n {
+					// check if a point was written while we were running
+					select {
+					case n = <-numPoints:
+						// a new point was written.
+						if readCount != n {
+							t.Errorf("expexcted %d values in series, got %d", n, readCount)
+						}
+					default:
+						t.Errorf("expexcted %d values in series, got %d", n, readCount)
+					}
+				}
+			}
+			//check if we have finished writing points.
+			select {
+			case <-finished:
+				return
+			default:
+			}
+		}
+	}(writeNotify, done)
+
+	// write points to the series.
+	for i := 0; i < 100; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+		writeNotify <- i + 1
+		time.Sleep(sleep)
+	}
+	done <- struct{}{}
+}
+
+func testGobEncodeDecode(t *testing.T, s *Series, count, byteLen int) {
+	var b bytes.Buffer
+
+	// encoode the series
+	enc := gob.NewEncoder(&b)
+	err := enc.Encode(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// should encode to 230bytes
+	if b.Len() != byteLen {
+		t.Fatalf("encoded bytes not expected size. expecting %d got %d", byteLen, b.Len())
+	}
+
+	// decode the series
+	dec := gob.NewDecoder(&b)
+	thawed := Series{}
+	err = dec.Decode(&thawed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// compare fields between original and thawed series.
+
+	it := thawed.Iter()
+	for i := 0; i < count; i++ {
+		if !it.Next() {
+			t.Fatalf("expected a metric, but none available")
+		}
+		tt, vv := it.Values()
+		if TwoHoursData[i].t != tt || TwoHoursData[i].v != vv {
+			t.Errorf("thawed metric values dont match what was written. (%d, %f) != (%d, %f)\n", tt, vv, TwoHoursData[i].t, TwoHoursData[i].v)
+		}
+	}
+
+	if it.Next() {
+		t.Fatalf("expected to have read all metrics, but there are still more available.")
+	}
+
+}
+
+func TestGobEncodeDecode(t *testing.T) {
+	s := New(TwoHoursData[0].t)
+	for i := 0; i < 5; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+	}
+	testGobEncodeDecode(t, s, 5, 230)
+}
+
+func TestGobEncodeDecodeThenWrite(t *testing.T) {
+	s := New(TwoHoursData[0].t)
+	for i := 0; i < 5; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+	}
+	testGobEncodeDecode(t, s, 5, 230)
+
+	for i := 5; i < 20; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+	}
+	testGobEncodeDecode(t, s, 20, 253)
+}
+
+func TestGobEncodeDecodeFinished(t *testing.T) {
+	s := New(TwoHoursData[0].t)
+	for i := 0; i < 5; i++ {
+		s.Push(TwoHoursData[i].t, TwoHoursData[i].v)
+	}
+	s.Finish()
+	testGobEncodeDecode(t, s, 5, 234)
 }
 
 func BenchmarkEncode(b *testing.B) {
