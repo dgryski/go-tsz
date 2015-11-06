@@ -53,7 +53,7 @@ type seriesOnDisk struct {
 
 // Implimentation GobEncoder interface
 // https://golang.org/pkg/encoding/gob/#GobEncoder
-func (s Series) GobEncode() ([]byte, error) {
+func (s *Series) GobEncode() ([]byte, error) {
 	s.Lock()
 	defer s.Unlock()
 	pendingBits, pendingCount := s.bw.Pending()
