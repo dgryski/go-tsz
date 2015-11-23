@@ -1,6 +1,8 @@
 package tsz
 
 import (
+	"math"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -79,11 +81,13 @@ func TestExampleEncoding(t *testing.T) {
 	}
 }
 
-var TwoHoursData = []struct {
+type point struct {
 	v float64
 	t uint32
-}{
-	// 2h of data
+}
+
+// 120 points every 60s
+var TwoHoursData = []point{
 	{761, 1440583200}, {727, 1440583260}, {765, 1440583320}, {706, 1440583380}, {700, 1440583440},
 	{679, 1440583500}, {757, 1440583560}, {708, 1440583620}, {739, 1440583680}, {707, 1440583740},
 	{699, 1440583800}, {740, 1440583860}, {729, 1440583920}, {766, 1440583980}, {730, 1440584040},
@@ -203,4 +207,79 @@ func TestEncodeSimilarFloats(t *testing.T) {
 	if err := it.Err(); err != nil {
 		t.Errorf("it.Err()=%v, want nil", err)
 	}
+}
+
+// collection of 24h worth of minutely points, with different characteristics.
+var DataZeroFloats = make([]point, 60*24)
+var DataSameFloats = make([]point, 60*24)
+var DataSmallRangePosInts = make([]point, 60*24)
+var DataSmallRangePosFloats = make([]point, 60*24)
+var DataLargeRangePosFloats = make([]point, 60*24)
+var DataRandomPosFloats = make([]point, 60*24)
+var DataRandomFloats = make([]point, 60*24)
+
+func init() {
+	for i := 0; i < len(DataZeroFloats); i++ {
+		DataZeroFloats[i] = point{float64(0), uint32(i * 60)}
+	}
+	for i := 0; i < len(DataSameFloats); i++ {
+		DataSameFloats[i] = point{float64(1234.567), uint32(i * 60)}
+	}
+	for i := 0; i < len(DataSmallRangePosInts); i++ {
+		DataSmallRangePosInts[i] = point{TwoHoursData[i%120].v, uint32(i * 60)}
+	}
+	for i := 0; i < len(DataSmallRangePosFloats); i++ {
+		v := float64(TwoHoursData[i%120].v) * 1.2
+		DataSmallRangePosFloats[i] = point{v, uint32(i * 60)}
+	}
+	for i := 0; i < len(DataLargeRangePosFloats); i++ {
+		v := (float64(TwoHoursData[i%120].v) / 1000) * math.MaxFloat64
+		DataLargeRangePosFloats[i] = point{v, uint32(i * 60)}
+	}
+	for i := 0; i < len(DataRandomPosFloats); i++ {
+		DataRandomPosFloats[i] = point{rand.ExpFloat64(), uint32(i * 60)}
+	}
+	for i := 0; i < len(DataRandomFloats); i++ {
+		DataRandomFloats[i] = point{rand.NormFloat64(), uint32(i * 60)}
+	}
+}
+func BenchmarkEncodeSize10min(b *testing.B) {
+	benchmarkEncodeSize(b, 10)
+}
+func BenchmarkEncodeSize30min(b *testing.B) {
+	benchmarkEncodeSize(b, 30)
+}
+func BenchmarkEncodeSize1h(b *testing.B) {
+	benchmarkEncodeSize(b, 60)
+}
+func BenchmarkEncodeSize2h(b *testing.B) {
+	benchmarkEncodeSize(b, 120)
+}
+func BenchmarkEncodeSize6h(b *testing.B) {
+	benchmarkEncodeSize(b, 360)
+}
+func BenchmarkEncodeSize12h(b *testing.B) {
+	benchmarkEncodeSize(b, 720)
+}
+func BenchmarkEncodeSize24h(b *testing.B) {
+	benchmarkEncodeSize(b, 1440)
+}
+func benchmarkEncodeSize(b *testing.B, points int) {
+	do := func(data []point, desc string) {
+		s := New(data[0].t)
+		for _, tt := range data[0:points] {
+			s.Push(tt.t, tt.v)
+		}
+		size := len(s.Bytes())
+		BPerPoint := float64(size) / float64(points)
+		b.Logf("encode %d %s points: %6d Bytes. %.2f B/point\n", points, desc, size, BPerPoint)
+	}
+	do(DataZeroFloats, "all zeroes      float")
+	do(DataSameFloats, "all the same    float")
+	do(DataSmallRangePosInts, "small range pos   int")
+	do(DataSmallRangePosFloats, "small range pos float")
+	do(DataLargeRangePosFloats, "large range pos float")
+	do(DataRandomPosFloats, "random positive float")
+	do(DataRandomFloats, "random pos/neg  float")
+	b.SkipNow()
 }
