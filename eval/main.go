@@ -5,6 +5,8 @@ import (
 	"github.com/dgryski/go-tsz"
 	"math"
 	"math/rand"
+	"os"
+	"text/tabwriter"
 )
 
 // collection of 24h worth of minutely points, with different characteristics.
@@ -42,30 +44,36 @@ func init() {
 	}
 }
 func main() {
-	benchmarkEncodeSize(10)
-	benchmarkEncodeSize(30)
-	benchmarkEncodeSize(60)
-	benchmarkEncodeSize(120)
-	benchmarkEncodeSize(360)
-	benchmarkEncodeSize(720)
-	benchmarkEncodeSize(1440)
-}
-
-func benchmarkEncodeSize(points int) {
-	do := func(data []tsz.Point, desc string) {
-		s := tsz.New(data[0].T)
-		for _, tt := range data[0:points] {
-			s.Push(tt.T, tt.V)
+	intervals := []int{10, 30, 60, 120, 360, 720, 1440}
+	do := func(data []tsz.Point) string {
+		str := ""
+		for _, points := range intervals {
+			s := tsz.New(data[0].T)
+			for _, tt := range data[0:points] {
+				s.Push(tt.T, tt.V)
+			}
+			size := len(s.Bytes())
+			BPerPoint := float64(size) / float64(points)
+			str += fmt.Sprintf("\033[31m%d\033[39m\t%.2f\t", size, BPerPoint)
 		}
-		size := len(s.Bytes())
-		BPerPoint := float64(size) / float64(points)
-		fmt.Printf("encode %d %s points: %6d Bytes. %.2f B/point\n", points, desc, size, BPerPoint)
+		return str
 	}
-	do(DataZeroFloats, "all zeroes      float")
-	do(DataSameFloats, "all the same    float")
-	do(DataSmallRangePosInts, "small range pos   int")
-	do(DataSmallRangePosFloats, "small range pos float")
-	do(DataLargeRangePosFloats, "large range pos float")
-	do(DataRandomPosFloats, "random positive float")
-	do(DataRandomFloats, "random pos/neg  float")
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 5, 0, 1, ' ', tabwriter.AlignRight)
+	fmt.Fprintln(w, "CS = chunk size in Bytes")
+	fmt.Fprintln(w, "BPP = Bytes per point")
+	str := "test"
+	for _, points := range intervals {
+		str += fmt.Sprintf("\t  \033[39m%dCS\033[39m\t%dBPP", points, points)
+	}
+	fmt.Fprintln(w, str)
+	fmt.Fprintf(w, "all zeroes      float\t"+do(DataZeroFloats)+"\n")
+	fmt.Fprintf(w, "all the same    float\t"+do(DataSameFloats)+"\n")
+	fmt.Fprintf(w, "small range pos   int\t"+do(DataSmallRangePosInts)+"\n")
+	fmt.Fprintf(w, "small range pos float\t"+do(DataSmallRangePosFloats)+"\n")
+	fmt.Fprintf(w, "large range pos float\t"+do(DataLargeRangePosFloats)+"\n")
+	fmt.Fprintf(w, "random positive float\t"+do(DataRandomPosFloats)+"\n")
+	fmt.Fprintf(w, "random pos/neg  float\t"+do(DataRandomFloats)+"\n")
+	fmt.Fprintln(w)
+	w.Flush()
 }
