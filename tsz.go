@@ -9,12 +9,16 @@ package tsz
 import (
 	"bytes"
 	"math"
+	"sync"
 
 	"github.com/dgryski/go-bits"
 	"github.com/dgryski/go-bitstream"
 )
 
+// Series is the basic series primitive
+// you can concurrently put values, finish the stream, and create iterators
 type Series struct {
+	sync.Mutex
 
 	// TODO(dgryski): timestamps in the paper are uint64
 
@@ -48,6 +52,8 @@ func New(t0 uint32) *Series {
 }
 
 func (s *Series) Bytes() []byte {
+	s.Lock()
+	defer s.Unlock()
 	return s.buf.Bytes()
 }
 
@@ -60,14 +66,17 @@ func finish(w *bitstream.BitWriter) {
 }
 
 func (s *Series) Finish() {
-
+	s.Lock()
 	if !s.finished {
 		finish(s.bw)
 		s.finished = true
 	}
+	s.Unlock()
 }
 
 func (s *Series) Push(t uint32, v float64) {
+	s.Lock()
+	defer s.Unlock()
 
 	if s.t == 0 {
 		// first point
@@ -140,18 +149,21 @@ func (s *Series) Push(t uint32, v float64) {
 }
 
 func (s *Series) Iter() *Iter {
+	s.Lock()
 	data := s.buf.Bytes()
 	newData := make([]byte, len(data), len(data)+1)
 	copy(newData, data)
+	byt, count := s.bw.Pending()
+	s.Unlock()
 	buf := bytes.NewBuffer(newData)
 	w := bitstream.NewWriter(buf)
-	byt, count := s.bw.Pending()
 	w.Resume(byt, count)
 	finish(w)
 	iter, _ := NewIterator(buf.Bytes())
 	return iter
 }
 
+// Iter lets you iterate over a series.  It is not concurrency-safe.
 type Iter struct {
 	t0 uint32
 
