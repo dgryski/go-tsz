@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/dgryski/go-tsz"
+	"github.com/dgryski/go-tsz/testdata"
 	"math"
 	"math/rand"
 	"os"
@@ -10,42 +11,42 @@ import (
 )
 
 // collection of 24h worth of minutely points, with different characteristics.
-var DataZeroFloats = make([]tsz.Point, 60*24)
-var DataSameFloats = make([]tsz.Point, 60*24)
-var DataSmallRangePosInts = make([]tsz.Point, 60*24)
-var DataSmallRangePosFloats = make([]tsz.Point, 60*24)
-var DataLargeRangePosFloats = make([]tsz.Point, 60*24)
-var DataRandomPosFloats = make([]tsz.Point, 60*24)
-var DataRandomFloats = make([]tsz.Point, 60*24)
+var DataZeroFloats = make([]testdata.Point, 60*24)
+var DataSameFloats = make([]testdata.Point, 60*24)
+var DataSmallRangePosInts = make([]testdata.Point, 60*24)
+var DataSmallRangePosFloats = make([]testdata.Point, 60*24)
+var DataLargeRangePosFloats = make([]testdata.Point, 60*24)
+var DataRandomPosFloats = make([]testdata.Point, 60*24)
+var DataRandomFloats = make([]testdata.Point, 60*24)
 
 func init() {
 	for i := 0; i < len(DataZeroFloats); i++ {
-		DataZeroFloats[i] = tsz.Point{float64(0), uint32(i * 60)}
+		DataZeroFloats[i] = testdata.Point{float64(0), uint32(i * 60)}
 	}
 	for i := 0; i < len(DataSameFloats); i++ {
-		DataSameFloats[i] = tsz.Point{float64(1234.567), uint32(i * 60)}
+		DataSameFloats[i] = testdata.Point{float64(1234.567), uint32(i * 60)}
 	}
 	for i := 0; i < len(DataSmallRangePosInts); i++ {
-		DataSmallRangePosInts[i] = tsz.Point{tsz.TwoHoursData[i%120].V, uint32(i * 60)}
+		DataSmallRangePosInts[i] = testdata.Point{testdata.TwoHoursData[i%120].V, uint32(i * 60)}
 	}
 	for i := 0; i < len(DataSmallRangePosFloats); i++ {
-		v := float64(tsz.TwoHoursData[i%120].V) * 1.2
-		DataSmallRangePosFloats[i] = tsz.Point{v, uint32(i * 60)}
+		v := float64(testdata.TwoHoursData[i%120].V) * 1.2
+		DataSmallRangePosFloats[i] = testdata.Point{v, uint32(i * 60)}
 	}
 	for i := 0; i < len(DataLargeRangePosFloats); i++ {
-		v := (float64(tsz.TwoHoursData[i%120].V) / 1000) * math.MaxFloat64
-		DataLargeRangePosFloats[i] = tsz.Point{v, uint32(i * 60)}
+		v := (float64(testdata.TwoHoursData[i%120].V) / 1000) * math.MaxFloat64
+		DataLargeRangePosFloats[i] = testdata.Point{v, uint32(i * 60)}
 	}
 	for i := 0; i < len(DataRandomPosFloats); i++ {
-		DataRandomPosFloats[i] = tsz.Point{rand.ExpFloat64(), uint32(i * 60)}
+		DataRandomPosFloats[i] = testdata.Point{rand.ExpFloat64(), uint32(i * 60)}
 	}
 	for i := 0; i < len(DataRandomFloats); i++ {
-		DataRandomFloats[i] = tsz.Point{rand.NormFloat64(), uint32(i * 60)}
+		DataRandomFloats[i] = testdata.Point{rand.NormFloat64(), uint32(i * 60)}
 	}
 }
 func main() {
 	intervals := []int{10, 30, 60, 120, 360, 720, 1440}
-	do := func(data []tsz.Point) string {
+	do := func(data []testdata.Point) string {
 		str := ""
 		for _, points := range intervals {
 			s := tsz.New(data[0].T)

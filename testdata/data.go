@@ -1,4 +1,4 @@
-package tsz
+package testdata
 
 type Point struct {
 	V float64

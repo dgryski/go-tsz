@@ -1,6 +1,7 @@
 package tsz
 
 import (
+	"github.com/dgryski/go-tsz/testdata"
 	"testing"
 	"time"
 )
@@ -81,13 +82,13 @@ func TestExampleEncoding(t *testing.T) {
 
 func TestRoundtrip(t *testing.T) {
 
-	s := New(TwoHoursData[0].T)
-	for _, p := range TwoHoursData {
+	s := New(testdata.TwoHoursData[0].T)
+	for _, p := range testdata.TwoHoursData {
 		s.Push(p.T, p.V)
 	}
 
 	it := s.Iter()
-	for _, w := range TwoHoursData {
+	for _, w := range testdata.TwoHoursData {
 		if !it.Next() {
 			t.Fatalf("Next()=false, want true")
 		}
@@ -119,7 +120,7 @@ func TestConcurrentRoundtrip10MsBetweenWrites(t *testing.T) {
 
 // Test reading while writing at the same time.
 func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
-	s := New(TwoHoursData[0].T)
+	s := New(testdata.TwoHoursData[0].T)
 
 	//notify the reader about the number of points that have been written.
 	writeNotify := make(chan int)
@@ -143,8 +144,8 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 				// read all of the points in the series.
 				for it.Next() == true {
 					tt, vv := it.Values()
-					expectedT := TwoHoursData[readCount].T
-					expectedV := TwoHoursData[readCount].V
+					expectedT := testdata.TwoHoursData[readCount].T
+					expectedV := testdata.TwoHoursData[readCount].V
 					if expectedT != tt || expectedV != vv {
 						t.Errorf("metric values dont match what was written. (%d, %f) != (%d, %f)\n", tt, vv, expectedT, expectedV)
 					}
@@ -176,7 +177,7 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 
 	// write points to the series.
 	for i := 0; i < 100; i++ {
-		s.Push(TwoHoursData[i].T, TwoHoursData[i].V)
+		s.Push(testdata.TwoHoursData[i].T, testdata.TwoHoursData[i].V)
 		writeNotify <- i + 1
 		time.Sleep(sleep)
 	}
@@ -185,16 +186,16 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 
 func BenchmarkEncode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s := New(TwoHoursData[0].T)
-		for _, tt := range TwoHoursData {
+		s := New(testdata.TwoHoursData[0].T)
+		for _, tt := range testdata.TwoHoursData {
 			s.Push(tt.T, tt.V)
 		}
 	}
 }
 
 func BenchmarkDecode(b *testing.B) {
-	s := New(TwoHoursData[0].T)
-	for _, tt := range TwoHoursData {
+	s := New(testdata.TwoHoursData[0].T)
+	for _, tt := range testdata.TwoHoursData {
 		s.Push(tt.T, tt.V)
 	}
 
