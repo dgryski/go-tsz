@@ -29,8 +29,25 @@ var SmallRangePosf = make([]tsz.Point, 60*24)
 var LargeRangePosf = make([]tsz.Point, 60*24)
 var SmallRangePos0f = make([]tsz.Point, 60*24)
 var LargeRangePos0f = make([]tsz.Point, 60*24)
+
+var RandomTinyPosf = make([]tsz.Point, 60*24)
+var RandomTinyf = make([]tsz.Point, 60*24)
+var RandomTinyPos2f = make([]tsz.Point, 60*24)
+var RandomTiny2f = make([]tsz.Point, 60*24)
+var RandomTinyPos1f = make([]tsz.Point, 60*24)
+var RandomTiny1f = make([]tsz.Point, 60*24)
+var RandomTinyPos0f = make([]tsz.Point, 60*24)
+var RandomTiny0f = make([]tsz.Point, 60*24)
+
 var RandomSmallPosf = make([]tsz.Point, 60*24)
 var RandomSmallf = make([]tsz.Point, 60*24)
+var RandomSmallPos2f = make([]tsz.Point, 60*24)
+var RandomSmall2f = make([]tsz.Point, 60*24)
+var RandomSmallPos1f = make([]tsz.Point, 60*24)
+var RandomSmall1f = make([]tsz.Point, 60*24)
+var RandomSmallPos0f = make([]tsz.Point, 60*24)
+var RandomSmall0f = make([]tsz.Point, 60*24)
+
 var RandomLargePosf = make([]tsz.Point, 60*24)
 var RandomLargef = make([]tsz.Point, 60*24)
 var RandomLargePos0f = make([]tsz.Point, 60*24)
@@ -84,16 +101,34 @@ func main() {
 		ConstantNearMinf[i] = tsz.Point{-math.MaxFloat64 / 100, ts}
 		ConstantNearMax0f[i] = tsz.Point{math.Floor(ConstantNearMaxf[i].V), ts}
 		ConstantNearMin0f[i] = tsz.Point{math.Floor(ConstantNearMinf[i].V), ts}
-		SmallRangePosd[i] = tsz.Point{testdata.TwoHoursData[i%120].V, ts}
-		LargeRangePosd[i] = tsz.Point{testdata.TwoHoursData[i%120].V * 1000000, ts}
-		SmallRangePosf[i] = tsz.Point{float64(testdata.TwoHoursData[i%120].V) * 1.234567, ts}
-		LargeRangePosf[i] = tsz.Point{float64(testdata.TwoHoursData[i%120].V) * 0.00001234567 * math.MaxFloat64, ts}
-		SmallRangePos0f[i] = tsz.Point{math.Floor(SmallRangePosf[i].V), ts}
-		LargeRangePos0f[i] = tsz.Point{math.Floor(LargeRangePosf[i].V), ts}
-		RandomSmallPosf[i] = tsz.Point{rand.ExpFloat64(), ts}
-		RandomSmallf[i] = tsz.Point{rand.NormFloat64(), ts}
-		RandomLargePosf[i] = tsz.Point{rand.ExpFloat64() * 0.0001 * math.MaxFloat64, ts}
-		RandomLargef[i] = tsz.Point{rand.NormFloat64() * 0.0001 * math.MaxFloat64, ts}
+
+		SmallRangePosd[i] = tsz.Point{testdata.TwoHoursData[i%120].V, ts}                                            // THD is 650 - 860, so this is 0-119
+		LargeRangePosd[i] = tsz.Point{testdata.TwoHoursData[i%120].V * 1000000, ts}                                  // 0 to 119M
+		SmallRangePosf[i] = tsz.Point{float64(testdata.TwoHoursData[i%120].V) * 1.234567, ts}                        // 0-150
+		LargeRangePosf[i] = tsz.Point{float64(testdata.TwoHoursData[i%120].V) * 0.00001234567 * math.MaxFloat64, ts} // 0-maxfloat/1000
+		SmallRangePos0f[i] = tsz.Point{math.Floor(SmallRangePosf[i].V), ts}                                          // 0-150
+		LargeRangePos0f[i] = tsz.Point{math.Floor(LargeRangePosf[i].V), ts}                                          // 0-maxfloat/1000
+
+		RandomTinyPosf[i] = tsz.Point{rand.ExpFloat64(), ts} // 0-inf, but most vals are very low, mostly between 0 and 2, rarely goes over 10
+		RandomTinyf[i] = tsz.Point{rand.NormFloat64(), ts}   // -inf to + inf, as many pos as neg, but similar as above, rarely goes under -10 or over +10
+		RandomTinyPos2f[i] = tsz.Point{RoundNum(RandomTinyPosf[i].V, 2), ts}
+		RandomTiny2f[i] = tsz.Point{RoundNum(RandomTinyPosf[i].V, 2), ts}
+		RandomTinyPos1f[i] = tsz.Point{RoundNum(RandomTinyPosf[i].V, 1), ts}
+		RandomTiny1f[i] = tsz.Point{RoundNum(RandomTinyPosf[i].V, 1), ts}
+		RandomTinyPos0f[i] = tsz.Point{math.Floor(RandomTinyPosf[i].V), ts}
+		RandomTiny0f[i] = tsz.Point{math.Floor(RandomTinyPosf[i].V), ts}
+
+		RandomSmallPosf[i] = tsz.Point{RandomTinyPosf[i].V * 100, ts} // 0-inf, but most vals are very low, mostly between 0 and 200, rarely goes over 1000
+		RandomSmallf[i] = tsz.Point{RandomTinyf[i].V * 100, ts}       // -inf to + inf, as many pos as neg, but similar as above, rarely goes under -1000 or over +1000
+		RandomSmallPos2f[i] = tsz.Point{RoundNum(RandomSmallPosf[i].V, 2), ts}
+		RandomSmall2f[i] = tsz.Point{RoundNum(RandomSmallPosf[i].V, 2), ts}
+		RandomSmallPos1f[i] = tsz.Point{RoundNum(RandomSmallPosf[i].V, 1), ts}
+		RandomSmall1f[i] = tsz.Point{RoundNum(RandomSmallPosf[i].V, 1), ts}
+		RandomSmallPos0f[i] = tsz.Point{math.Floor(RandomSmallPosf[i].V), ts}
+		RandomSmall0f[i] = tsz.Point{math.Floor(RandomSmallPosf[i].V), ts}
+
+		RandomLargePosf[i] = tsz.Point{rand.ExpFloat64() * 0.0001 * math.MaxFloat64, ts} // 0-inf, rarely goes over maxfloat/1000
+		RandomLargef[i] = tsz.Point{rand.NormFloat64() * 0.0001 * math.MaxFloat64, ts}   // same buth also negative
 		RandomLargePos0f[i] = tsz.Point{math.Floor(RandomLargePosf[i].V), ts}
 		RandomLarge0f[i] = tsz.Point{math.Floor(RandomLargef[i].V), ts}
 	}
@@ -144,8 +179,25 @@ func main() {
 	fmt.Fprintf(w, "pick-range large pos       f\t"+do(LargeRangePosf)+"\n")
 	fmt.Fprintf(w, "pick-range small pos     .0f\t"+do(SmallRangePos0f)+"\n")
 	fmt.Fprintf(w, "pick-range large pos     .0f\t"+do(LargeRangePos0f)+"\n")
+	fmt.Fprintf(w, "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n")
+	fmt.Fprintf(w, "pick-rand  tiny  pos       f\t"+do(RandomTinyPosf)+"\n")
+	fmt.Fprintf(w, "pick-rand  tiny  pos/neg   f\t"+do(RandomTinyf)+"\n")
+	fmt.Fprintf(w, "pick-rand  tiny  pos     .2f\t"+do(RandomTinyPos2f)+"\n")
+	fmt.Fprintf(w, "pick-rand  tiny  pos/neg .2f\t"+do(RandomTiny2f)+"\n")
+	fmt.Fprintf(w, "pick-rand  tiny  pos     .1f\t"+do(RandomTinyPos1f)+"\n")
+	fmt.Fprintf(w, "pick-rand  tiny  pos/neg .1f\t"+do(RandomTiny1f)+"\n")
+	fmt.Fprintf(w, "pick-rand  tiny  pos     .0f\t"+do(RandomTinyPos0f)+"\n")
+	fmt.Fprintf(w, "pick-rand  tiny  pos/neg .0f\t"+do(RandomTiny0f)+"\n")
+	fmt.Fprintf(w, "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n")
 	fmt.Fprintf(w, "pick-rand  small pos       f\t"+do(RandomSmallPosf)+"\n")
 	fmt.Fprintf(w, "pick-rand  small pos/neg   f\t"+do(RandomSmallf)+"\n")
+	fmt.Fprintf(w, "pick-rand  small pos     .2f\t"+do(RandomSmallPos2f)+"\n")
+	fmt.Fprintf(w, "pick-rand  small pos/neg .2f\t"+do(RandomSmall2f)+"\n")
+	fmt.Fprintf(w, "pick-rand  small pos     .1f\t"+do(RandomSmallPos1f)+"\n")
+	fmt.Fprintf(w, "pick-rand  small pos/neg .1f\t"+do(RandomSmall1f)+"\n")
+	fmt.Fprintf(w, "pick-rand  small pos     .0f\t"+do(RandomSmallPos0f)+"\n")
+	fmt.Fprintf(w, "pick-rand  small pos/neg .0f\t"+do(RandomSmall0f)+"\n")
+	fmt.Fprintf(w, "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n")
 	fmt.Fprintf(w, "pick-rand  large pos       f\t"+do(RandomLargePosf)+"\n")
 	fmt.Fprintf(w, "pick-rand  large pos/neg   f\t"+do(RandomLargef)+"\n")
 	fmt.Fprintf(w, "pick-rand  large pos     .0f\t"+do(RandomLargePos0f)+"\n")
