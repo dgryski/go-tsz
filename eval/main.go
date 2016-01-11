@@ -42,6 +42,15 @@ var RandomSmall1f = make([]testdata.Point, 60*24)
 var RandomSmallPos0f = make([]testdata.Point, 60*24)
 var RandomSmall0f = make([]testdata.Point, 60*24)
 
+var Random60kPosf = make([]testdata.Point, 60*24)
+var Random60kf = make([]testdata.Point, 60*24)
+var Random60kPos2f = make([]testdata.Point, 60*24)
+var Random60k2f = make([]testdata.Point, 60*24)
+var Random60kPos1f = make([]testdata.Point, 60*24)
+var Random60k1f = make([]testdata.Point, 60*24)
+var Random60kPos0f = make([]testdata.Point, 60*24)
+var Random60k0f = make([]testdata.Point, 60*24)
+
 var SmallTestDataPosf = make([]testdata.Point, 60*24)
 var SmallTestDataf = make([]testdata.Point, 60*24)
 var SmallTestDataPos0f = make([]testdata.Point, 60*24)
@@ -97,6 +106,18 @@ func main() {
 		RandomSmall1f[i] = testdata.Point{RoundNum(RandomSmallPosf[i].V, 1), ts}
 		RandomSmallPos0f[i] = testdata.Point{math.Floor(RandomSmallPosf[i].V), ts}
 		RandomSmall0f[i] = testdata.Point{math.Floor(RandomSmallPosf[i].V), ts}
+
+		Random60kPosf[i] = testdata.Point{rand.Float64() * 60000, ts}
+		Random60kf[i] = testdata.Point{Random60kPosf[i].V, ts}
+		if rand.Int()%2 == 0 {
+			Random60kf[i].V *= -1.0
+		}
+		Random60kPos2f[i] = testdata.Point{RoundNum(Random60kPosf[i].V, 2), ts}
+		Random60k2f[i] = testdata.Point{RoundNum(Random60kf[i].V, 2), ts}
+		Random60kPos1f[i] = testdata.Point{RoundNum(Random60kPosf[i].V, 1), ts}
+		Random60k1f[i] = testdata.Point{RoundNum(Random60kf[i].V, 1), ts}
+		Random60kPos0f[i] = testdata.Point{math.Floor(Random60kPosf[i].V), ts}
+		Random60k0f[i] = testdata.Point{math.Floor(Random60kf[i].V), ts}
 
 		SmallTestDataPosf[i] = testdata.Point{float64(testdata.TwoHoursData[i%120].V) * 1.234567, ts} // THD is 650-680, so this is 0-150
 		if rand.Int()%2 == 0 {
@@ -155,6 +176,8 @@ func main() {
 	cmtTinyPosNeg := "[-inf] -10 ~ 10 [inf]"
 	cmtSmallPos := "0 ~ 1000 [inf]"
 	cmtSmallPosNeg := "[-inf] -1000 ~ 1000 [inf]"
+	cmt60kPos := "0 ~60k"
+	cmt60kPosNeg := "-60k ~ 60k"
 	cmtSmallTestPos := "0~150"
 	cmtSmallTestPosNeg := "-150~150"
 	cmtRandomLargePos := "0 ~ MaxFloat64/1000 [inf]"
@@ -192,6 +215,15 @@ func main() {
 	fmt.Fprintln(w, "random small pos/neg  .1f\t"+do(RandomSmall1f, cmtSmallPosNeg))
 	fmt.Fprintln(w, "random small pos      .0f\t"+do(RandomSmallPos0f, cmtSmallPos))
 	fmt.Fprintln(w, "random small pos/neg  .0f\t"+do(RandomSmall0f, cmtSmallPosNeg))
+	fmt.Fprintln(w, "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t")
+	fmt.Fprintln(w, "random medium pos       f\t"+do(Random60kPosf, cmt60kPos))
+	fmt.Fprintln(w, "random medium pos/neg   f\t"+do(Random60kf, cmt60kPosNeg))
+	fmt.Fprintln(w, "random medium pos     .2f\t"+do(Random60kPos2f, cmt60kPos))
+	fmt.Fprintln(w, "random medium pos/neg .2f\t"+do(Random60k2f, cmt60kPosNeg))
+	fmt.Fprintln(w, "random medium pos     .1f\t"+do(Random60kPos1f, cmt60kPos))
+	fmt.Fprintln(w, "random medium pos/neg .1f\t"+do(Random60k1f, cmt60kPosNeg))
+	fmt.Fprintln(w, "random medium pos     .0f\t"+do(Random60kPos0f, cmt60kPos))
+	fmt.Fprintln(w, "random medium pos/neg .0f\t"+do(Random60k0f, cmt60kPosNeg))
 	fmt.Fprintln(w, "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t")
 	fmt.Fprintln(w, "testdata small pos       f\t"+do(SmallTestDataPosf, cmtSmallTestPos))
 	fmt.Fprintln(w, "testdata small pos/neg   f\t"+do(SmallTestDataf, cmtSmallTestPosNeg))
