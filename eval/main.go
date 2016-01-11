@@ -92,20 +92,20 @@ func main() {
 		RandomTinyPosf[i] = testdata.Point{rand.ExpFloat64(), ts} // 0-inf, but most vals are very low, mostly between 0 and 2, rarely goes over 10
 		RandomTinyf[i] = testdata.Point{rand.NormFloat64(), ts}   // -inf to + inf, as many pos as neg, but similar as above, rarely goes under -10 or over +10
 		RandomTinyPos2f[i] = testdata.Point{RoundNum(RandomTinyPosf[i].V, 2), ts}
-		RandomTiny2f[i] = testdata.Point{RoundNum(RandomTinyPosf[i].V, 2), ts}
+		RandomTiny2f[i] = testdata.Point{RoundNum(RandomTinyf[i].V, 2), ts}
 		RandomTinyPos1f[i] = testdata.Point{RoundNum(RandomTinyPosf[i].V, 1), ts}
-		RandomTiny1f[i] = testdata.Point{RoundNum(RandomTinyPosf[i].V, 1), ts}
+		RandomTiny1f[i] = testdata.Point{RoundNum(RandomTinyf[i].V, 1), ts}
 		RandomTinyPos0f[i] = testdata.Point{math.Floor(RandomTinyPosf[i].V), ts}
-		RandomTiny0f[i] = testdata.Point{math.Floor(RandomTinyPosf[i].V), ts}
+		RandomTiny0f[i] = testdata.Point{math.Floor(RandomTinyf[i].V), ts}
 
 		RandomSmallPosf[i] = testdata.Point{RandomTinyPosf[i].V * 100, ts} // 0-inf, but most vals are very low, mostly between 0 and 200, rarely goes over 1000
 		RandomSmallf[i] = testdata.Point{RandomTinyf[i].V * 100, ts}       // -inf to + inf, as many pos as neg, but similar as above, rarely goes under -1000 or over +1000
 		RandomSmallPos2f[i] = testdata.Point{RoundNum(RandomSmallPosf[i].V, 2), ts}
-		RandomSmall2f[i] = testdata.Point{RoundNum(RandomSmallPosf[i].V, 2), ts}
+		RandomSmall2f[i] = testdata.Point{RoundNum(RandomSmallf[i].V, 2), ts}
 		RandomSmallPos1f[i] = testdata.Point{RoundNum(RandomSmallPosf[i].V, 1), ts}
-		RandomSmall1f[i] = testdata.Point{RoundNum(RandomSmallPosf[i].V, 1), ts}
+		RandomSmall1f[i] = testdata.Point{RoundNum(RandomSmallf[i].V, 1), ts}
 		RandomSmallPos0f[i] = testdata.Point{math.Floor(RandomSmallPosf[i].V), ts}
-		RandomSmall0f[i] = testdata.Point{math.Floor(RandomSmallPosf[i].V), ts}
+		RandomSmall0f[i] = testdata.Point{math.Floor(RandomSmallf[i].V), ts}
 
 		Random60kPosf[i] = testdata.Point{rand.Float64() * 60000, ts}
 		Random60kf[i] = testdata.Point{Random60kPosf[i].V, ts}
