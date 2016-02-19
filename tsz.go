@@ -7,12 +7,10 @@ http://www.vldb.org/pvldb/vol8/p1816-teller.pdf
 package tsz
 
 import (
-	"bytes"
 	"math"
 	"sync"
 
 	"github.com/dgryski/go-bits"
-	"github.com/dgryski/go-bitstream"
 )
 
 // Series is the basic series primitive
@@ -30,8 +28,7 @@ type Series struct {
 	leading  uint64
 	trailing uint64
 
-	buf bytes.Buffer
-	bw  *bitstream.BitWriter
+	bw bstream
 
 	finished bool
 }
@@ -42,10 +39,8 @@ func New(t0 uint32) *Series {
 		leading: ^uint64(0),
 	}
 
-	s.bw = bitstream.NewWriter(&s.buf)
-
 	// block header
-	s.bw.WriteBits(uint64(t0), 32)
+	s.bw.writeBits(uint64(t0), 32)
 
 	return &s
 
@@ -54,21 +49,20 @@ func New(t0 uint32) *Series {
 func (s *Series) Bytes() []byte {
 	s.Lock()
 	defer s.Unlock()
-	return s.buf.Bytes()
+	return s.bw.bytes()
 }
 
-func finish(w *bitstream.BitWriter) {
+func finish(w *bstream) {
 	// write an end-of-stream record
-	w.WriteBits(0x0f, 4)
-	w.WriteBits(0xffffffff, 32)
-	w.WriteBit(bitstream.Zero)
-	w.Flush(bitstream.Zero)
+	w.writeBits(0x0f, 4)
+	w.writeBits(0xffffffff, 32)
+	w.writeBit(zero)
 }
 
 func (s *Series) Finish() {
 	s.Lock()
 	if !s.finished {
-		finish(s.bw)
+		finish(&s.bw)
 		s.finished = true
 	}
 	s.Unlock()
@@ -83,8 +77,8 @@ func (s *Series) Push(t uint32, v float64) {
 		s.t = t
 		s.val = v
 		s.tDelta = t - s.t0
-		s.bw.WriteBits(uint64(s.tDelta), 14)
-		s.bw.WriteBits(math.Float64bits(v), 64)
+		s.bw.writeBits(uint64(s.tDelta), 14)
+		s.bw.writeBits(math.Float64bits(v), 64)
 		return
 	}
 
@@ -93,27 +87,27 @@ func (s *Series) Push(t uint32, v float64) {
 
 	switch {
 	case dod == 0:
-		s.bw.WriteBit(bitstream.Zero)
+		s.bw.writeBit(zero)
 	case -63 <= dod && dod <= 64:
-		s.bw.WriteBits(0x02, 2) // '10'
-		s.bw.WriteBits(uint64(dod), 7)
+		s.bw.writeBits(0x02, 2) // '10'
+		s.bw.writeBits(uint64(dod), 7)
 	case -255 <= dod && dod <= 256:
-		s.bw.WriteBits(0x06, 3) // '110'
-		s.bw.WriteBits(uint64(dod), 9)
+		s.bw.writeBits(0x06, 3) // '110'
+		s.bw.writeBits(uint64(dod), 9)
 	case -2047 <= dod && dod <= 2048:
-		s.bw.WriteBits(0x0e, 4) // '1110'
-		s.bw.WriteBits(uint64(dod), 12)
+		s.bw.writeBits(0x0e, 4) // '1110'
+		s.bw.writeBits(uint64(dod), 12)
 	default:
-		s.bw.WriteBits(0x0f, 4) // '1111'
-		s.bw.WriteBits(uint64(dod), 32)
+		s.bw.writeBits(0x0f, 4) // '1111'
+		s.bw.writeBits(uint64(dod), 32)
 	}
 
 	vDelta := math.Float64bits(v) ^ math.Float64bits(s.val)
 
 	if vDelta == 0 {
-		s.bw.WriteBit(bitstream.Zero)
+		s.bw.writeBit(zero)
 	} else {
-		s.bw.WriteBit(bitstream.One)
+		s.bw.writeBit(one)
 
 		leading := bits.Clz(vDelta)
 		trailing := bits.Ctz(vDelta)
@@ -125,20 +119,20 @@ func (s *Series) Push(t uint32, v float64) {
 
 		// TODO(dgryski): check if it's 'cheaper' to reset the leading/trailing bits instead
 		if s.leading != ^uint64(0) && leading >= s.leading && trailing >= s.trailing {
-			s.bw.WriteBit(bitstream.Zero)
-			s.bw.WriteBits(vDelta>>s.trailing, 64-int(s.leading)-int(s.trailing))
+			s.bw.writeBit(zero)
+			s.bw.writeBits(vDelta>>s.trailing, 64-int(s.leading)-int(s.trailing))
 		} else {
 			s.leading, s.trailing = leading, trailing
 
-			s.bw.WriteBit(bitstream.One)
-			s.bw.WriteBits(leading, 5)
+			s.bw.writeBit(one)
+			s.bw.writeBits(leading, 5)
 
 			// Note that if leading == trailing == 0, then sigbits == 64.  But that value doesn't actually fit into the 6 bits we have.
 			// Luckily, we never need to encode 0 significant bits, since that would put us in the other case (vdelta == 0).
 			// So instead we write out a 0 and adjust it back to 64 on unpacking.
 			sigbits := 64 - leading - trailing
-			s.bw.WriteBits(sigbits, 6)
-			s.bw.WriteBits(vDelta>>trailing, int(sigbits))
+			s.bw.writeBits(sigbits, 6)
+			s.bw.writeBits(vDelta>>trailing, int(sigbits))
 		}
 	}
 
@@ -150,16 +144,11 @@ func (s *Series) Push(t uint32, v float64) {
 
 func (s *Series) Iter() *Iter {
 	s.Lock()
-	data := s.buf.Bytes()
-	newData := make([]byte, len(data), len(data)+1)
-	copy(newData, data)
-	byt, count := s.bw.Pending()
+	w := s.bw.clone()
 	s.Unlock()
-	buf := bytes.NewBuffer(newData)
-	w := bitstream.NewWriter(buf)
-	w.Resume(byt, count)
+
 	finish(w)
-	iter, _ := NewIterator(buf.Bytes())
+	iter, _ := bstreamIterator(w)
 	return iter
 }
 
@@ -174,28 +163,30 @@ type Iter struct {
 	leading  uint64
 	trailing uint64
 
-	br *bitstream.BitReader
-
-	b []byte
+	br bstream
 
 	finished bool
 
 	err error
 }
 
-func NewIterator(b []byte) (*Iter, error) {
-	br := bitstream.NewReader(bytes.NewReader(b))
+func bstreamIterator(br *bstream) (*Iter, error) {
 
-	t0, err := br.ReadBits(32)
+	br.count = 8
+
+	t0, err := br.readBits(32)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Iter{
 		t0: uint32(t0),
-		br: br,
-		b:  b,
+		br: *br,
 	}, nil
+}
+
+func NewIterator(b []byte) (*Iter, error) {
+	return bstreamIterator(newBReader(b))
 }
 
 func (it *Iter) Next() bool {
@@ -206,14 +197,14 @@ func (it *Iter) Next() bool {
 
 	if it.t == 0 {
 		// read first t and v
-		tDelta, err := it.br.ReadBits(14)
+		tDelta, err := it.br.readBits(14)
 		if err != nil {
 			it.err = err
 			return false
 		}
 		it.tDelta = uint32(tDelta)
 		it.t = it.t0 + it.tDelta
-		v, err := it.br.ReadBits(64)
+		v, err := it.br.readBits(64)
 		if err != nil {
 			it.err = err
 			return false
@@ -228,12 +219,12 @@ func (it *Iter) Next() bool {
 	var d byte
 	for i := 0; i < 4; i++ {
 		d <<= 1
-		bit, err := it.br.ReadBit()
+		bit, err := it.br.readBit()
 		if err != nil {
 			it.err = err
 			return false
 		}
-		if bit == bitstream.Zero {
+		if bit == zero {
 			break
 		}
 		d |= 1
@@ -251,7 +242,7 @@ func (it *Iter) Next() bool {
 	case 0x0e:
 		sz = 12
 	case 0x0f:
-		bits, err := it.br.ReadBits(32)
+		bits, err := it.br.readBits(32)
 		if err != nil {
 			it.err = err
 			return false
@@ -267,7 +258,7 @@ func (it *Iter) Next() bool {
 	}
 
 	if sz != 0 {
-		bits, err := it.br.ReadBits(int(sz))
+		bits, err := it.br.readBits(int(sz))
 		if err != nil {
 			it.err = err
 			return false
@@ -286,32 +277,32 @@ func (it *Iter) Next() bool {
 
 	// read compressed value
 	d = 0
-	bit, err := it.br.ReadBit()
+	bit, err := it.br.readBit()
 	if err != nil {
 		it.err = err
 		return false
 	}
 
-	if bit == bitstream.Zero {
+	if bit == zero {
 		// it.val = it.val
 	} else {
-		bit, err := it.br.ReadBit()
+		bit, err := it.br.readBit()
 		if err != nil {
 			it.err = err
 			return false
 		}
-		if bit == bitstream.Zero {
+		if bit == zero {
 			// reuse leading/trailing zero bits
 			// it.leading, it.trailing = it.leading, it.trailing
 		} else {
-			bits, err := it.br.ReadBits(5)
+			bits, err := it.br.readBits(5)
 			if err != nil {
 				it.err = err
 				return false
 			}
 			it.leading = bits
 
-			bits, err = it.br.ReadBits(6)
+			bits, err = it.br.readBits(6)
 			if err != nil {
 				it.err = err
 				return false
@@ -325,7 +316,7 @@ func (it *Iter) Next() bool {
 		}
 
 		mbits := int(64 - it.leading - it.trailing)
-		bits, err := it.br.ReadBits(mbits)
+		bits, err := it.br.readBits(mbits)
 		if err != nil {
 			it.err = err
 			return false
