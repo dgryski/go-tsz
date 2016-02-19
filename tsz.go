@@ -25,8 +25,8 @@ type Series struct {
 	t      uint32
 	val    float64
 
-	leading  uint64
-	trailing uint64
+	leading  uint8
+	trailing uint8
 
 	bw bstream
 
@@ -36,7 +36,7 @@ type Series struct {
 func New(t0 uint32) *Series {
 	s := Series{
 		t0:      t0,
-		leading: ^uint64(0),
+		leading: ^uint8(0),
 	}
 
 	// block header
@@ -109,8 +109,8 @@ func (s *Series) Push(t uint32, v float64) {
 	} else {
 		s.bw.writeBit(one)
 
-		leading := bits.Clz(vDelta)
-		trailing := bits.Ctz(vDelta)
+		leading := uint8(bits.Clz(vDelta))
+		trailing := uint8(bits.Ctz(vDelta))
 
 		// clamp number of leading zeros to avoid overflow when encoding
 		if leading >= 32 {
@@ -118,20 +118,20 @@ func (s *Series) Push(t uint32, v float64) {
 		}
 
 		// TODO(dgryski): check if it's 'cheaper' to reset the leading/trailing bits instead
-		if s.leading != ^uint64(0) && leading >= s.leading && trailing >= s.trailing {
+		if s.leading != ^uint8(0) && leading >= s.leading && trailing >= s.trailing {
 			s.bw.writeBit(zero)
 			s.bw.writeBits(vDelta>>s.trailing, 64-int(s.leading)-int(s.trailing))
 		} else {
 			s.leading, s.trailing = leading, trailing
 
 			s.bw.writeBit(one)
-			s.bw.writeBits(leading, 5)
+			s.bw.writeBits(uint64(leading), 5)
 
 			// Note that if leading == trailing == 0, then sigbits == 64.  But that value doesn't actually fit into the 6 bits we have.
 			// Luckily, we never need to encode 0 significant bits, since that would put us in the other case (vdelta == 0).
 			// So instead we write out a 0 and adjust it back to 64 on unpacking.
 			sigbits := 64 - leading - trailing
-			s.bw.writeBits(sigbits, 6)
+			s.bw.writeBits(uint64(sigbits), 6)
 			s.bw.writeBits(vDelta>>trailing, int(sigbits))
 		}
 	}
@@ -160,8 +160,8 @@ type Iter struct {
 	t      uint32
 	val    float64
 
-	leading  uint64
-	trailing uint64
+	leading  uint8
+	trailing uint8
 
 	br bstream
 
@@ -300,14 +300,14 @@ func (it *Iter) Next() bool {
 				it.err = err
 				return false
 			}
-			it.leading = bits
+			it.leading = uint8(bits)
 
 			bits, err = it.br.readBits(6)
 			if err != nil {
 				it.err = err
 				return false
 			}
-			mbits := bits
+			mbits := uint8(bits)
 			// 0 significant bits here means we overflowed and we actually need 64; see comment in encoder
 			if mbits == 0 {
 				mbits = 64
