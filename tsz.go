@@ -19,18 +19,16 @@ type Series struct {
 	sync.Mutex
 
 	// TODO(dgryski): timestamps in the paper are uint64
+	t0  uint32
+	t   uint32
+	val float64
 
-	t0     uint32
-	tDelta uint32
-	t      uint32
-	val    float64
-
+	bw       bstream
 	leading  uint8
 	trailing uint8
-
-	bw bstream
-
 	finished bool
+
+	tDelta uint32
 }
 
 func New(t0 uint32) *Series {
@@ -156,18 +154,17 @@ func (s *Series) Iter() *Iter {
 type Iter struct {
 	t0 uint32
 
-	tDelta uint32
-	t      uint32
-	val    float64
+	t   uint32
+	val float64
 
+	br       bstream
 	leading  uint8
 	trailing uint8
 
-	br bstream
-
 	finished bool
 
-	err error
+	tDelta uint32
+	err    error
 }
 
 func bstreamIterator(br *bstream) (*Iter, error) {
