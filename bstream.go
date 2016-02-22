@@ -40,7 +40,7 @@ const (
 
 func (b *bstream) writeBit(bit bit) {
 
-	if len(b.stream) == 0 || b.count == 0 {
+	if b.count == 0 {
 		b.stream = append(b.stream, 0)
 		b.count = 8
 	}
@@ -56,8 +56,7 @@ func (b *bstream) writeBit(bit bit) {
 
 func (b *bstream) writeByte(byt byte) {
 
-	// first time
-	if len(b.stream) == 0 || b.count == 0 {
+	if b.count == 0 {
 		b.stream = append(b.stream, 0)
 		b.count = 8
 	}
