@@ -10,6 +10,8 @@ import (
 
 func Fuzz(data []byte) int {
 
+	fuzzUnpack(data)
+
 	if len(data) < 9 {
 		return 0
 	}
@@ -50,4 +52,16 @@ func Fuzz(data []byte) int {
 	}
 
 	return 1
+}
+
+func fuzzUnpack(data []byte) {
+
+	it, err := NewIterator(data)
+	if err != nil {
+		return
+	}
+
+	for it.Next() {
+		_, _ = it.Values()
+	}
 }
