@@ -273,7 +273,6 @@ func (it *Iter) Next() bool {
 	it.t = it.t + it.tDelta
 
 	// read compressed value
-	d = 0
 	bit, err := it.br.readBit()
 	if err != nil {
 		it.err = err
