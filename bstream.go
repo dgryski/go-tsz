@@ -117,6 +117,11 @@ func (b *bstream) readByte() (byte, error) {
 
 	if b.count == 0 {
 		b.stream = b.stream[1:]
+
+		if len(b.stream) == 0 {
+			return 0, io.EOF
+		}
+
 		b.count = 8
 	}
 
