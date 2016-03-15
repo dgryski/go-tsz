@@ -185,6 +185,7 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 }
 
 func BenchmarkEncode(b *testing.B) {
+	b.SetBytes(int64(len(testdata.TwoHoursData) * 12))
 	for i := 0; i < b.N; i++ {
 		s := New(testdata.TwoHoursData[0].T)
 		for _, tt := range testdata.TwoHoursData {
@@ -194,6 +195,7 @@ func BenchmarkEncode(b *testing.B) {
 }
 
 func BenchmarkDecode(b *testing.B) {
+	b.SetBytes(int64(len(testdata.TwoHoursData) * 12))
 	s := New(testdata.TwoHoursData[0].T)
 	for _, tt := range testdata.TwoHoursData {
 		s.Push(tt.T, tt.V)
