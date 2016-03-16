@@ -133,36 +133,35 @@ func testConcurrentRoundtrip(t *testing.T, sleep time.Duration) {
 	// will be sent over the channel, so we can make sure we are reading
 	// the correct amount of values.
 	go func(numPoints chan int, finished chan struct{}) {
-		n := 0
+		written := 0
 		for {
 			select {
-			case n = <-numPoints:
-				//new point has been written. total points in now "n"
+			case written = <-numPoints:
 			default:
-				readCount := 0
+				read := 0
 				it := s.Iter()
 				// read all of the points in the series.
-				for it.Next() == true {
+				for it.Next() {
 					tt, vv := it.Values()
-					expectedT := testdata.TwoHoursData[readCount].T
-					expectedV := testdata.TwoHoursData[readCount].V
+					expectedT := testdata.TwoHoursData[read].T
+					expectedV := testdata.TwoHoursData[read].V
 					if expectedT != tt || expectedV != vv {
 						t.Errorf("metric values dont match what was written. (%d, %f) != (%d, %f)\n", tt, vv, expectedT, expectedV)
 					}
-					readCount++
+					read++
 				}
 				//check that the number of points read matches the number of points
 				// written to the series.
-				if readCount != n {
+				if read != written && read != written+1 {
 					// check if a point was written while we were running
 					select {
-					case n = <-numPoints:
+					case written = <-numPoints:
 						// a new point was written.
-						if readCount != n {
-							t.Errorf("expexcted %d values in series, got %d", n, readCount)
+						if read != written && read != written+1 {
+							t.Errorf("expexcted %d values in series, got %d", written, read)
 						}
 					default:
-						t.Errorf("expexcted %d values in series, got %d", n, readCount)
+						t.Errorf("expexcted %d values in series, got %d", written, read)
 					}
 				}
 			}
