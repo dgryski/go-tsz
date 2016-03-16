@@ -193,7 +193,7 @@ func BenchmarkEncode(b *testing.B) {
 	}
 }
 
-func BenchmarkDecode(b *testing.B) {
+func BenchmarkDecodeSeries(b *testing.B) {
 	b.SetBytes(int64(len(testdata.TwoHoursData) * 12))
 	s := New(testdata.TwoHoursData[0].T)
 	for _, tt := range testdata.TwoHoursData {
@@ -204,6 +204,28 @@ func BenchmarkDecode(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		it := s.Iter()
+		var j int
+		for it.Next() {
+			j++
+		}
+	}
+}
+
+func BenchmarkDecodeByteSlice(b *testing.B) {
+	b.SetBytes(int64(len(testdata.TwoHoursData) * 12))
+	s := New(testdata.TwoHoursData[0].T)
+	for _, tt := range testdata.TwoHoursData {
+		s.Push(tt.T, tt.V)
+	}
+
+	s.Finish()
+	bytes := s.Bytes()
+	buf := make([]byte, len(bytes))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		copy(buf, bytes)
+		it, _ := NewIterator(buf)
 		var j int
 		for it.Next() {
 			j++
