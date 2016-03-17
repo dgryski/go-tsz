@@ -19,7 +19,7 @@ type Series struct {
 	sync.Mutex
 
 	// TODO(dgryski): timestamps in the paper are uint64
-	t0  uint32
+	T0  uint32
 	t   uint32
 	val float64
 
@@ -33,7 +33,7 @@ type Series struct {
 
 func New(t0 uint32) *Series {
 	s := Series{
-		t0:      t0,
+		T0:      t0,
 		leading: ^uint8(0),
 	}
 
@@ -74,7 +74,7 @@ func (s *Series) Push(t uint32, v float64) {
 		// first point
 		s.t = t
 		s.val = v
-		s.tDelta = t - s.t0
+		s.tDelta = t - s.T0
 		s.bw.writeBits(uint64(s.tDelta), 14)
 		s.bw.writeBits(math.Float64bits(v), 64)
 		return
@@ -152,7 +152,7 @@ func (s *Series) Iter() *Iter {
 
 // Iter lets you iterate over a series.  It is not concurrency-safe.
 type Iter struct {
-	t0 uint32
+	T0 uint32
 
 	t   uint32
 	val float64
@@ -177,7 +177,7 @@ func bstreamIterator(br *bstream) (*Iter, error) {
 	}
 
 	return &Iter{
-		t0: uint32(t0),
+		T0: uint32(t0),
 		br: *br,
 	}, nil
 }
@@ -200,7 +200,7 @@ func (it *Iter) Next() bool {
 			return false
 		}
 		it.tDelta = uint32(tDelta)
-		it.t = it.t0 + it.tDelta
+		it.t = it.T0 + it.tDelta
 		v, err := it.br.readBits(64)
 		if err != nil {
 			it.err = err
