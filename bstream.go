@@ -7,28 +7,28 @@ import (
 // bstream is a stream of bits
 type bstream struct {
 	// the data stream
-	stream []byte
+	Stream []byte
 
 	// how many bits are valid in current byte
-	count uint8
+	Count uint8
 }
 
 func newBReader(b []byte) *bstream {
-	return &bstream{stream: b, count: 8}
+	return &bstream{Stream: b, Count: 8}
 }
 
 func newBWriter(size int) *bstream {
-	return &bstream{stream: make([]byte, 0, size), count: 0}
+	return &bstream{Stream: make([]byte, 0, size), Count: 0}
 }
 
 func (b *bstream) clone() *bstream {
-	d := make([]byte, len(b.stream))
-	copy(d, b.stream)
-	return &bstream{stream: d, count: b.count}
+	d := make([]byte, len(b.Stream))
+	copy(d, b.Stream)
+	return &bstream{Stream: d, Count: b.Count}
 }
 
 func (b *bstream) bytes() []byte {
-	return b.stream
+	return b.Stream
 }
 
 type bit bool
@@ -40,35 +40,35 @@ const (
 
 func (b *bstream) writeBit(bit bit) {
 
-	if b.count == 0 {
-		b.stream = append(b.stream, 0)
-		b.count = 8
+	if b.Count == 0 {
+		b.Stream = append(b.Stream, 0)
+		b.Count = 8
 	}
 
-	i := len(b.stream) - 1
+	i := len(b.Stream) - 1
 
 	if bit {
-		b.stream[i] |= 1 << (b.count - 1)
+		b.Stream[i] |= 1 << (b.Count - 1)
 	}
 
-	b.count--
+	b.Count--
 }
 
 func (b *bstream) writeByte(byt byte) {
 
-	if b.count == 0 {
-		b.stream = append(b.stream, 0)
-		b.count = 8
+	if b.Count == 0 {
+		b.Stream = append(b.Stream, 0)
+		b.Count = 8
 	}
 
-	i := len(b.stream) - 1
+	i := len(b.Stream) - 1
 
-	// fill up b.b with b.count bits from byt
-	b.stream[i] |= byt >> (8 - b.count)
+	// fill up b.b with b.Count bits from byt
+	b.Stream[i] |= byt >> (8 - b.Count)
 
-	b.stream = append(b.stream, 0)
+	b.Stream = append(b.Stream, 0)
 	i++
-	b.stream[i] = byt << b.count
+	b.Stream[i] = byt << b.Count
 }
 
 func (b *bstream) writeBits(u uint64, nbits int) {
@@ -89,55 +89,55 @@ func (b *bstream) writeBits(u uint64, nbits int) {
 
 func (b *bstream) readBit() (bit, error) {
 
-	if len(b.stream) == 0 {
+	if len(b.Stream) == 0 {
 		return false, io.EOF
 	}
 
-	if b.count == 0 {
-		b.stream = b.stream[1:]
+	if b.Count == 0 {
+		b.Stream = b.Stream[1:]
 		// did we just run out of stuff to read?
-		if len(b.stream) == 0 {
+		if len(b.Stream) == 0 {
 			return false, io.EOF
 		}
-		b.count = 8
+		b.Count = 8
 	}
 
-	b.count--
-	d := b.stream[0] & 0x80
-	b.stream[0] <<= 1
+	b.Count--
+	d := b.Stream[0] & 0x80
+	b.Stream[0] <<= 1
 	return d != 0, nil
 }
 
 func (b *bstream) readByte() (byte, error) {
 
-	if len(b.stream) == 0 {
+	if len(b.Stream) == 0 {
 		return 0, io.EOF
 	}
 
-	if b.count == 0 {
-		b.stream = b.stream[1:]
+	if b.Count == 0 {
+		b.Stream = b.Stream[1:]
 
-		if len(b.stream) == 0 {
+		if len(b.Stream) == 0 {
 			return 0, io.EOF
 		}
 
-		b.count = 8
+		b.Count = 8
 	}
 
-	if b.count == 8 {
-		b.count = 0
-		return b.stream[0], nil
+	if b.Count == 8 {
+		b.Count = 0
+		return b.Stream[0], nil
 	}
 
-	byt := b.stream[0]
-	b.stream = b.stream[1:]
+	byt := b.Stream[0]
+	b.Stream = b.Stream[1:]
 
-	if len(b.stream) == 0 {
+	if len(b.Stream) == 0 {
 		return 0, io.EOF
 	}
 
-	byt |= b.stream[0] >> b.count
-	b.stream[0] <<= (8 - b.count)
+	byt |= b.Stream[0] >> b.Count
+	b.Stream[0] <<= (8 - b.Count)
 
 	return byt, nil
 }

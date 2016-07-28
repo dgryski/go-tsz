@@ -1,10 +1,43 @@
 package tsz
 
 import (
-	"github.com/dgryski/go-tsz/testdata"
+	"os"
 	"testing"
 	"time"
+
+	"github.com/dgryski/go-tsz/testdata"
 )
+
+func deleteGob(testGob string) {
+	if _, err := os.Stat(testGob); err == nil {
+		os.Remove(testGob)
+	}
+}
+
+func TestSaveLoad(t *testing.T) {
+	testGob := "test.gob"
+	deleteGob(testGob)
+	defer deleteGob(testGob)
+	s1 := New(uint32(time.Now().Unix()))
+	date := uint32(time.Now().Unix())
+	value := float64(1)
+	s1.Push(date, value)
+	err := s1.Save(testGob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2 := New(uint32(time.Now().Unix()))
+	err = s2.Load(testGob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	it := s2.Iter()
+	it.Next()
+	tt, vv := it.Values()
+	if tt != date || vv != float64(1) {
+		t.Fatalf("Series entries not restored from dump")
+	}
+}
 
 func TestExampleEncoding(t *testing.T) {
 
