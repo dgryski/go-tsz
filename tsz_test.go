@@ -15,19 +15,16 @@ func deleteGob(testGob string) {
 }
 
 func TestSaveLoad(t *testing.T) {
-	testGob := "test.gob"
-	deleteGob(testGob)
-	defer deleteGob(testGob)
 	s1 := New(uint32(time.Now().Unix()))
 	date := uint32(time.Now().Unix())
 	value := float64(1)
 	s1.Push(date, value)
-	err := s1.Save(testGob)
+	buf, err := s1.Save()
 	if err != nil {
 		t.Fatal(err)
 	}
 	s2 := New(uint32(time.Now().Unix()))
-	err = s2.Load(testGob)
+	err = s2.Load(buf)
 	if err != nil {
 		t.Fatal(err)
 	}

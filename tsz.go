@@ -7,10 +7,9 @@ http://www.vldb.org/pvldb/vol8/p1816-teller.pdf
 package tsz
 
 import (
+	"bytes"
 	"encoding/gob"
-	"log"
 	"math"
-	"os"
 	"sync"
 
 	"github.com/dgryski/go-bits"
@@ -355,32 +354,23 @@ func (it *Iter) Err() error {
 	return it.err
 }
 
-// Save the series to a file
-func (s *Series) Save(path string) error {
-	file, err := os.Create(path)
-	defer file.Close()
+// Save the series to a byte array
+func (s *Series) Save() ([]byte, error) {
+	dst := new(bytes.Buffer)
+	encoder := gob.NewEncoder(dst)
+	err := encoder.Encode(s)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	encoder := gob.NewEncoder(file)
-	err = encoder.Encode(s)
-	if err != nil {
-		return err
-	}
-	return nil
+	return dst.Bytes(), nil
 }
 
-// Load a series from a file
-func (s *Series) Load(path string) error {
-	file, err := os.Open(path)
-	defer file.Close()
+// Load a series from a byte array
+func (s *Series) Load(buf []byte) error {
+	src := bytes.NewBuffer(buf)
+	decoder := gob.NewDecoder(src)
+	err := decoder.Decode(&s)
 	if err != nil {
-		return err
-	}
-	decoder := gob.NewDecoder(file)
-	err = decoder.Decode(&s)
-	if err != nil {
-		log.Println("failed decoding file")
 		return err
 	}
 	return nil
