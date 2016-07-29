@@ -7,6 +7,8 @@ http://www.vldb.org/pvldb/vol8/p1816-teller.pdf
 package tsz
 
 import (
+	"bytes"
+	"encoding/gob"
 	"math"
 	"sync"
 
@@ -16,38 +18,50 @@ import (
 // Series is the basic series primitive
 // you can concurrently put values, finish the stream, and create iterators
 type Series struct {
-	sync.Mutex
+	mutex sync.Mutex
 
 	// TODO(dgryski): timestamps in the paper are uint64
 	T0  uint32
-	t   uint32
-	val float64
+	T   uint32
+	Val float64
 
-	bw       bstream
-	leading  uint8
-	trailing uint8
-	finished bool
+	BW       bstream
+	Leading  uint8
+	Trailing uint8
+	Finished bool
 
-	tDelta uint32
+	TDelta uint32
 }
 
+// Lock the series
+func (s *Series) Lock() {
+	s.mutex.Lock()
+}
+
+// Unlock the series
+func (s *Series) Unlock() {
+	s.mutex.Unlock()
+}
+
+// New series with t0 as start
 func New(t0 uint32) *Series {
 	s := Series{
 		T0:      t0,
-		leading: ^uint8(0),
+		Leading: ^uint8(0),
 	}
 
 	// block header
-	s.bw.writeBits(uint64(t0), 32)
+	s.BW.writeBits(uint64(t0), 32)
 
 	return &s
 
 }
 
+// Bytes of the series
 func (s *Series) Bytes() []byte {
 	s.Lock()
 	defer s.Unlock()
-	return s.bw.bytes()
+	return s.BW.bytes()
 }
 
 func finish(w *bstream) {
@@ -57,55 +71,57 @@ func finish(w *bstream) {
 	w.writeBit(zero)
 }
 
+// Finish the series
 func (s *Series) Finish() {
 	s.Lock()
-	if !s.finished {
-		finish(&s.bw)
-		s.finished = true
+	if !s.Finished {
+		finish(&s.BW)
+		s.Finished = true
 	}
 	s.Unlock()
 }
 
+// Push timestamp and value to the series
 func (s *Series) Push(t uint32, v float64) {
 	s.Lock()
 	defer s.Unlock()
 
-	if s.t == 0 {
+	if s.T == 0 {
 		// first point
-		s.t = t
-		s.val = v
-		s.tDelta = t - s.T0
-		s.bw.writeBits(uint64(s.tDelta), 14)
-		s.bw.writeBits(math.Float64bits(v), 64)
+		s.T = t
+		s.Val = v
+		s.TDelta = t - s.T0
+		s.BW.writeBits(uint64(s.TDelta), 14)
+		s.BW.writeBits(math.Float64bits(v), 64)
 		return
 	}
 
-	tDelta := t - s.t
-	dod := int32(tDelta - s.tDelta)
+	tDelta := t - s.T
+	dod := int32(tDelta - s.TDelta)
 
 	switch {
 	case dod == 0:
-		s.bw.writeBit(zero)
+		s.BW.writeBit(zero)
 	case -63 <= dod && dod <= 64:
-		s.bw.writeBits(0x02, 2) // '10'
-		s.bw.writeBits(uint64(dod), 7)
+		s.BW.writeBits(0x02, 2) // '10'
+		s.BW.writeBits(uint64(dod), 7)
 	case -255 <= dod && dod <= 256:
-		s.bw.writeBits(0x06, 3) // '110'
-		s.bw.writeBits(uint64(dod), 9)
+		s.BW.writeBits(0x06, 3) // '110'
+		s.BW.writeBits(uint64(dod), 9)
 	case -2047 <= dod && dod <= 2048:
-		s.bw.writeBits(0x0e, 4) // '1110'
-		s.bw.writeBits(uint64(dod), 12)
+		s.BW.writeBits(0x0e, 4) // '1110'
+		s.BW.writeBits(uint64(dod), 12)
 	default:
-		s.bw.writeBits(0x0f, 4) // '1111'
-		s.bw.writeBits(uint64(dod), 32)
+		s.BW.writeBits(0x0f, 4) // '1111'
+		s.BW.writeBits(uint64(dod), 32)
 	}
 
-	vDelta := math.Float64bits(v) ^ math.Float64bits(s.val)
+	vDelta := math.Float64bits(v) ^ math.Float64bits(s.Val)
 
 	if vDelta == 0 {
-		s.bw.writeBit(zero)
+		s.BW.writeBit(zero)
 	} else {
-		s.bw.writeBit(one)
+		s.BW.writeBit(one)
 
 		leading := uint8(bits.Clz(vDelta))
 		trailing := uint8(bits.Ctz(vDelta))
@@ -116,33 +132,34 @@ func (s *Series) Push(t uint32, v float64) {
 		}
 
 		// TODO(dgryski): check if it's 'cheaper' to reset the leading/trailing bits instead
-		if s.leading != ^uint8(0) && leading >= s.leading && trailing >= s.trailing {
-			s.bw.writeBit(zero)
-			s.bw.writeBits(vDelta>>s.trailing, 64-int(s.leading)-int(s.trailing))
+		if s.Leading != ^uint8(0) && leading >= s.Leading && trailing >= s.Trailing {
+			s.BW.writeBit(zero)
+			s.BW.writeBits(vDelta>>s.Trailing, 64-int(s.Leading)-int(s.Trailing))
 		} else {
-			s.leading, s.trailing = leading, trailing
+			s.Leading, s.Trailing = leading, trailing
 
-			s.bw.writeBit(one)
-			s.bw.writeBits(uint64(leading), 5)
+			s.BW.writeBit(one)
+			s.BW.writeBits(uint64(leading), 5)
 
 			// Note that if leading == trailing == 0, then sigbits == 64.  But that value doesn't actually fit into the 6 bits we have.
 			// Luckily, we never need to encode 0 significant bits, since that would put us in the other case (vdelta == 0).
 			// So instead we write out a 0 and adjust it back to 64 on unpacking.
 			sigbits := 64 - leading - trailing
-			s.bw.writeBits(uint64(sigbits), 6)
-			s.bw.writeBits(vDelta>>trailing, int(sigbits))
+			s.BW.writeBits(uint64(sigbits), 6)
+			s.BW.writeBits(vDelta>>trailing, int(sigbits))
 		}
 	}
 
-	s.tDelta = tDelta
-	s.t = t
-	s.val = v
+	s.TDelta = tDelta
+	s.T = t
+	s.Val = v
 
 }
 
+// Iter of key/val of the series
 func (s *Series) Iter() *Iter {
 	s.Lock()
-	w := s.bw.clone()
+	w := s.BW.clone()
 	s.Unlock()
 
 	finish(w)
@@ -169,7 +186,7 @@ type Iter struct {
 
 func bstreamIterator(br *bstream) (*Iter, error) {
 
-	br.count = 8
+	br.Count = 8
 
 	t0, err := br.readBits(32)
 	if err != nil {
@@ -182,10 +199,12 @@ func bstreamIterator(br *bstream) (*Iter, error) {
 	}, nil
 }
 
+// NewIterator on the series
 func NewIterator(b []byte) (*Iter, error) {
 	return bstreamIterator(newBReader(b))
 }
 
+// Next item from the iterator
 func (it *Iter) Next() bool {
 
 	if it.err != nil || it.finished {
@@ -325,10 +344,34 @@ func (it *Iter) Next() bool {
 	return true
 }
 
+// Values from the iterator
 func (it *Iter) Values() (uint32, float64) {
 	return it.t, it.val
 }
 
+// Err from the iterator
 func (it *Iter) Err() error {
 	return it.err
+}
+
+// Save the series to a byte array
+func (s *Series) Save() ([]byte, error) {
+	dst := new(bytes.Buffer)
+	encoder := gob.NewEncoder(dst)
+	err := encoder.Encode(s)
+	if err != nil {
+		return nil, err
+	}
+	return dst.Bytes(), nil
+}
+
+// Load a series from a byte array
+func (s *Series) Load(buf []byte) error {
+	src := bytes.NewBuffer(buf)
+	decoder := gob.NewDecoder(src)
+	err := decoder.Decode(&s)
+	if err != nil {
+		return err
+	}
+	return nil
 }
