@@ -7,6 +7,9 @@ http://www.vldb.org/pvldb/vol8/p1816-teller.pdf
 package tsz
 
 import (
+	"bytes"
+	"encoding/binary"
+	"io"
 	"math"
 	"sync"
 
@@ -331,4 +334,64 @@ func (it *Iter) Values() (uint32, float64) {
 
 func (it *Iter) Err() error {
 	return it.err
+}
+
+type errMarshal struct {
+	w   io.Writer
+	r   io.Reader
+	err error
+}
+
+func (ew *errMarshal) write(t interface{}) {
+	if ew.err != nil {
+		return
+	}
+	ew.err = binary.Write(ew.w, binary.BigEndian, t)
+}
+
+func (ew *errMarshal) read(t interface{}) {
+	if ew.err != nil {
+		return
+	}
+	ew.err = binary.Read(ew.r, binary.BigEndian, t)
+}
+
+// MarshalBinary implements the encoding.BinaryMarshaler interface
+func (s *Series) MarshalBinary() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	em := &errMarshal{w: buf}
+	em.write(s.T0)
+	em.write(s.leading)
+	em.write(s.t)
+	em.write(s.tDelta)
+	em.write(s.trailing)
+	em.write(s.val)
+	em.write(s.bw.stream)
+	em.write(s.bw.count)
+	// em.write(s.Mutex)
+	// em.write(s.finished)
+	if em.err != nil {
+		return nil, em.err
+	}
+	return buf.Bytes(), nil
+}
+
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface
+func (s *Series) UnmarshalBinary(b []byte) error {
+	buf := bytes.NewReader(b)
+	em := &errMarshal{r: buf}
+	em.read(&s.T0)
+	em.read(&s.leading)
+	em.read(&s.t)
+	em.read(&s.tDelta)
+	em.read(&s.trailing)
+	em.read(&s.val)
+	em.read(&s.bw.stream)
+	em.read(&s.bw.count)
+	// em.read(&s.Mutex)
+	// em.read(&s.finished)
+	if em.err != nil {
+		return em.err
+	}
+	return nil
 }

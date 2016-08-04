@@ -1,10 +1,39 @@
 package tsz
 
 import (
-	"github.com/dgryski/go-tsz/testdata"
 	"testing"
 	"time"
+
+	"github.com/dgryski/go-tsz/testdata"
 )
+
+func TestMarshalBinary(t *testing.T) {
+	s1T0 := uint32(time.Now().Unix())
+	s1 := New(s1T0)
+	s1.Push(s1T0+10, 12)
+	it1 := s1.Iter()
+	it1.Next()
+	s1TS, s1Value := it1.Values()
+	b, err := s1.MarshalBinary()
+	if err != nil {
+		t.Error(err)
+	}
+	s2T0 := uint32(time.Now().Unix() + 1)
+	s2 := New(s2T0)
+	err = s2.UnmarshalBinary(b)
+	if err != nil {
+		t.Error(err)
+	}
+	if s2.T0 != s1.T0 {
+		t.Fatalf("T0 not restored from dump")
+	}
+	it2 := s2.Iter()
+	it2.Next()
+	s2TS, s2Value := it2.Values()
+	if s2TS != s1TS || s2Value != s1Value {
+		t.Fatalf("Series entries not restored from dump")
+	}
+}
 
 func TestExampleEncoding(t *testing.T) {
 
