@@ -379,7 +379,6 @@ func (s *Series) MarshalBinary() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	em.write(int32(len(bStream)))
 	em.write(bStream)
 	if em.err != nil {
 		return nil, em.err
@@ -397,9 +396,7 @@ func (s *Series) UnmarshalBinary(b []byte) error {
 	em.read(&s.tDelta)
 	em.read(&s.trailing)
 	em.read(&s.val)
-	streamLen := uint32(0)
-	em.read(&streamLen)
-	outBuf := make([]byte, streamLen)
+	outBuf := make([]byte, buf.Len())
 	em.read(outBuf)
 	err := s.bw.UnmarshalBinary(outBuf)
 	if err != nil {
