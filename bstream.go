@@ -177,16 +177,28 @@ func (b *bstream) readBits(nbits int) (uint64, error) {
 // MarshalBinary implements the encoding.BinaryMarshaler interface
 func (b *bstream) MarshalBinary() ([]byte, error) {
 	buf := new(bytes.Buffer)
-	_ = binary.Write(buf, binary.BigEndian, b.count)
-	_ = binary.Write(buf, binary.BigEndian, b.stream)
+	err := binary.Write(buf, binary.BigEndian, b.count)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(buf, binary.BigEndian, b.stream)
+	if err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface
 func (b *bstream) UnmarshalBinary(bIn []byte) error {
 	buf := bytes.NewReader(bIn)
-	_ = binary.Read(buf, binary.BigEndian, &b.count)
+	err := binary.Read(buf, binary.BigEndian, &b.count)
+	if err != nil {
+		return err
+	}
 	b.stream = make([]byte, buf.Len())
-	_ = binary.Read(buf, binary.BigEndian, &b.stream)
+	err = binary.Read(buf, binary.BigEndian, &b.stream)
+	if err != nil {
+		return err
+	}
 	return nil
 }
