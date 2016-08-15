@@ -36,6 +36,39 @@ func TestMarshalBinary(t *testing.T) {
 	}
 }
 
+func BenchmarkMarshalBinary(b *testing.B) {
+	b.StopTimer()
+	s1 := New(testdata.TwoHoursData[0].T)
+	for _, p := range testdata.TwoHoursData {
+		s1.Push(p.T, p.V)
+	}
+	s1.Finish()
+	b.ReportAllocs()
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		s1.MarshalBinary()
+	}
+}
+
+func BenchmarkUnmarshalBinary(b *testing.B) {
+	b.StopTimer()
+	s1 := New(testdata.TwoHoursData[0].T)
+	for _, p := range testdata.TwoHoursData {
+		s1.Push(p.T, p.V)
+	}
+	s1.Finish()
+	buf, err := s1.MarshalBinary()
+	if err != nil {
+		b.Error(err)
+	}
+	b.ReportAllocs()
+	s2 := New(s1.T0)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		s2.UnmarshalBinary(buf)
+	}
+}
+
 func TestExampleEncoding(t *testing.T) {
 
 	// Example from the paper
