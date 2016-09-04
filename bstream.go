@@ -1,6 +1,8 @@
 package tsz
 
 import (
+	"bytes"
+	"encoding/binary"
 	"io"
 )
 
@@ -175,4 +177,33 @@ func (b *bstream) readBits(nbits int) (uint64, error) {
 	b.stream[0] <<= uint(nbits)
 	b.count -= uint8(nbits)
 	return u, nil
+}
+
+// MarshalBinary implements the encoding.BinaryMarshaler interface
+func (b *bstream) MarshalBinary() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.BigEndian, b.count)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(buf, binary.BigEndian, b.stream)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface
+func (b *bstream) UnmarshalBinary(bIn []byte) error {
+	buf := bytes.NewReader(bIn)
+	err := binary.Read(buf, binary.BigEndian, &b.count)
+	if err != nil {
+		return err
+	}
+	b.stream = make([]byte, buf.Len())
+	err = binary.Read(buf, binary.BigEndian, &b.stream)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -1,10 +1,73 @@
 package tsz
 
 import (
-	"github.com/dgryski/go-tsz/testdata"
 	"testing"
 	"time"
+
+	"github.com/dgryski/go-tsz/testdata"
 )
+
+func TestMarshalBinary(t *testing.T) {
+	s1 := New(testdata.TwoHoursData[0].T)
+	for _, p := range testdata.TwoHoursData {
+		s1.Push(p.T, p.V)
+	}
+	it1 := s1.Iter()
+	it1.Next()
+	b, err := s1.MarshalBinary()
+	if err != nil {
+		t.Error(err)
+	}
+	s2 := New(s1.T0)
+	err = s2.UnmarshalBinary(b)
+	if err != nil {
+		t.Error(err)
+	}
+	it := s2.Iter()
+	for _, w := range testdata.TwoHoursData {
+		if !it.Next() {
+			t.Fatalf("Next()=false, want true")
+		}
+		tt, vv := it.Values()
+		// t.Logf("it.Values()=(%+v, %+v)\n", time.Unix(int64(tt), 0), vv)
+		if w.T != tt || w.V != vv {
+			t.Errorf("Values()=(%v,%v), want (%v,%v)\n", tt, vv, w.T, w.V)
+		}
+	}
+}
+
+func BenchmarkMarshalBinary(b *testing.B) {
+	b.StopTimer()
+	s1 := New(testdata.TwoHoursData[0].T)
+	for _, p := range testdata.TwoHoursData {
+		s1.Push(p.T, p.V)
+	}
+	s1.Finish()
+	b.ReportAllocs()
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		s1.MarshalBinary()
+	}
+}
+
+func BenchmarkUnmarshalBinary(b *testing.B) {
+	b.StopTimer()
+	s1 := New(testdata.TwoHoursData[0].T)
+	for _, p := range testdata.TwoHoursData {
+		s1.Push(p.T, p.V)
+	}
+	s1.Finish()
+	buf, err := s1.MarshalBinary()
+	if err != nil {
+		b.Error(err)
+	}
+	b.ReportAllocs()
+	s2 := New(s1.T0)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		s2.UnmarshalBinary(buf)
+	}
+}
 
 func TestExampleEncoding(t *testing.T) {
 
