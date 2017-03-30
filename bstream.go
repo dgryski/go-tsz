@@ -65,9 +65,15 @@ func (b *bstream) writeByte(byt byte) {
 
 	i := len(b.stream) - 1
 
-	// fill up b.b with b.count bits from byt
-	b.stream[i] |= byt >> (8 - b.count)
+	// either we can write the entire byte in the last byte
+	if b.count == 8 {
+		b.stream[i] |= byt
+		b.count = 0
+		return
+	}
 
+	// ..or we need to split the write over two bytes.
+	b.stream[i] |= byt >> (8 - b.count)
 	b.stream = append(b.stream, 0)
 	i++
 	b.stream[i] = byt << b.count
@@ -96,11 +102,11 @@ func (b *bstream) readBit() (bit, error) {
 	}
 
 	if b.count == 0 {
-		b.stream = b.stream[1:]
 		// did we just run out of stuff to read?
-		if len(b.stream) == 0 {
+		if len(b.stream) == 1 {
 			return false, io.EOF
 		}
+		b.stream = b.stream[1:]
 		b.count = 8
 	}
 
