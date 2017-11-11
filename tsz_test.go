@@ -344,3 +344,11 @@ func TestEncodeSimilarFloats(t *testing.T) {
 		t.Errorf("it.Err()=%v, want nil", err)
 	}
 }
+
+func TestBstreamIteratorError(t *testing.T) {
+	b := newBReader([]byte(""))
+	_, err := bstreamIterator(b)
+	if err == nil {
+		t.Errorf("An error was expected")
+	}
+}
