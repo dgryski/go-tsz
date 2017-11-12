@@ -201,9 +201,5 @@ func (b *bstream) UnmarshalBinary(bIn []byte) error {
 		return err
 	}
 	b.stream = make([]byte, buf.Len())
-	err = binary.Read(buf, binary.BigEndian, &b.stream)
-	if err != nil {
-		return err
-	}
-	return nil
+	return binary.Read(buf, binary.BigEndian, &b.stream)
 }

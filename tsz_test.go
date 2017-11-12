@@ -37,6 +37,7 @@ func TestMarshalBinary(t *testing.T) {
 }
 
 func BenchmarkMarshalBinary(b *testing.B) {
+	var err error
 	b.StopTimer()
 	s1 := New(testdata.TwoHoursData[0].T)
 	for _, p := range testdata.TwoHoursData {
@@ -46,11 +47,15 @@ func BenchmarkMarshalBinary(b *testing.B) {
 	b.ReportAllocs()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		s1.MarshalBinary()
+		_, err = s1.MarshalBinary()
+	}
+	if err != nil {
+		b.Errorf("Unexpected error: %v\n", err)
 	}
 }
 
 func BenchmarkUnmarshalBinary(b *testing.B) {
+	var err error
 	b.StopTimer()
 	s1 := New(testdata.TwoHoursData[0].T)
 	for _, p := range testdata.TwoHoursData {
@@ -65,7 +70,10 @@ func BenchmarkUnmarshalBinary(b *testing.B) {
 	s2 := New(s1.T0)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		s2.UnmarshalBinary(buf)
+		err = s2.UnmarshalBinary(buf)
+	}
+	if err != nil {
+		b.Errorf("Unexpected error: %v\n", err)
 	}
 }
 
@@ -334,5 +342,13 @@ func TestEncodeSimilarFloats(t *testing.T) {
 
 	if err := it.Err(); err != nil {
 		t.Errorf("it.Err()=%v, want nil", err)
+	}
+}
+
+func TestBstreamIteratorError(t *testing.T) {
+	b := newBReader([]byte(""))
+	_, err := bstreamIterator(b)
+	if err == nil {
+		t.Errorf("An error was expected")
 	}
 }
