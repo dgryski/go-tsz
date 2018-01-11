@@ -11,9 +11,8 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
+	"math/bits"
 	"sync"
-
-	"github.com/dgryski/go-bits"
 )
 
 // Series is the basic series primitive
@@ -114,8 +113,8 @@ func (s *Series) Push(t uint32, v float64) {
 	} else {
 		s.bw.writeBit(one)
 
-		leading := uint8(bits.Clz(vDelta))
-		trailing := uint8(bits.Ctz(vDelta))
+		leading := uint8(bits.LeadingZeros64(vDelta))
+		trailing := uint8(bits.TrailingZeros64(vDelta))
 
 		// clamp number of leading zeros to avoid overflow when encoding
 		if leading >= 32 {
