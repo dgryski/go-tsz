@@ -2,7 +2,7 @@ package testdata
 
 type Point struct {
 	V float64
-	T uint32
+	T uint64
 }
 
 // 120 points every 60s

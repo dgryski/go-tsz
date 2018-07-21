@@ -81,7 +81,7 @@ func TestExampleEncoding(t *testing.T) {
 
 	// Example from the paper
 	t0, _ := time.ParseInLocation("Jan _2 2006 15:04:05", "Mar 24 2015 02:00:00", time.Local)
-	tunix := uint32(t0.Unix())
+	tunix := uint64(t0.Unix())
 
 	s := New(tunix)
 
@@ -115,9 +115,9 @@ func TestExampleEncoding(t *testing.T) {
 
 	it := s.Iter()
 
-	tunix = uint32(t0.Unix())
+	tunix = uint64(t0.Unix())
 	want := []struct {
-		t uint32
+		t uint64
 		v float64
 	}{
 		{tunix + 62, 12},
@@ -305,10 +305,10 @@ func BenchmarkDecodeByteSlice(b *testing.B) {
 }
 
 func TestEncodeSimilarFloats(t *testing.T) {
-	tunix := uint32(time.Unix(0, 0).Unix())
+	tunix := uint64(time.Unix(0, 0).Unix())
 	s := New(tunix)
 	want := []struct {
-		t uint32
+		t uint64
 		v float64
 	}{
 		{tunix, 6.00065e+06},
